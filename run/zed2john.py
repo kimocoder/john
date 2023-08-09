@@ -52,8 +52,8 @@ def parse_item(data, item, x):
     return data[i + len(item) + 4 : i + len(item) + 4 + int.from_bytes(data[i + len(item) : i + len(item) + 4],byteorder='big')]
 
 def parse_users(data):
-    users = list()
-    names = list()
+    users = []
+    names = []
     i = 0
     while i < len(data):
         while data[i:i+len(USERNAME)] != USERNAME and i < len(data):
@@ -118,8 +118,7 @@ def parse_decode_global_properties(filename):
     plaintext = cipher.decrypt(ciphertext)
 
     (users, names) = parse_users(plaintext)
-    i = 0
-    for x in users:
+    for i, x in enumerate(users):
         hash_func = pba_chk = pba_iter = pba_salt = 0
         (hash_func, pba_chk, pba_iter, pba_salt) = parse(plaintext, x)
         #if int(hash_func,16) == 22: # sha256 256bits
@@ -130,7 +129,6 @@ def parse_decode_global_properties(filename):
         #    sys.stderr.write("%s : unknown pkcs12_hashfunc\n" % filename)
         #    sys.exit(1)
         sys.stdout.write("%s:$zed$%s$%s$%s$%s$%s:::%s\n" % (names[i], ver, str(int(hash_func,16)), str(int(pba_iter,16)), pba_salt, pba_chk, os.path.basename(filename))) # If ID=3, then the pseudorandom bits being produced are to be used as an integrity key for MACing. (RFC 7292 Appendix B.3)
-        i += 1
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

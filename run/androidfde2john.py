@@ -154,22 +154,27 @@ def parse_footer(data):
             print(
                     data, crypt_ftr, "Bad magic in disk image footer")
         if crypt_ftr.major_version != 1:
-            print(data, crypt_ftr,
-                                "Cannot understand major version {} in "
-                                "disk image footer".format(
-                                    crypt_ftr.major_version))
+            print(
+                data,
+                crypt_ftr,
+                f"Cannot understand major version {crypt_ftr.major_version} in disk image footer",
+            )
         if crypt_ftr.minor_version != 0:
-            warn("crypto footer minor version {}, expected 0".format(
-                crypt_ftr.minor_version), UserWarning)
+            warn(
+                f"crypto footer minor version {crypt_ftr.minor_version}, expected 0",
+                UserWarning,
+            )
 
         if crypt_ftr.ftr_size > CryptMntFtr.struct_size():
             # skip to the end of the footer so we can read the key
             fh.seek(crypt_ftr.ftr_size - CryptMntFtr.struct_size(), os.SEEK_CUR)
 
         if crypt_ftr.keysize != KEY_LEN_BYTES:
-            print(data, crypt_ftr,
-                                "Keysize of {} bits not supported".format(
-                                    crypt_ftr.keysize*8))
+            print(
+                data,
+                crypt_ftr,
+                f"Keysize of {crypt_ftr.keysize * 8} bits not supported",
+            )
         key = fh.read(crypt_ftr.keysize)
         if len(key) != crypt_ftr.keysize:
             print(data, crypt_ftr,
@@ -200,11 +205,9 @@ def main(args):
     data = parse_data(args[1])
     (crypt_ftr, encrypted_key, salt) = parse_footer(args[2])
 
-    print("%s:$fde$%s$%s$%s$%s$%s" % (os.path.basename(args[1]), len(salt),
-                                      binascii.hexlify(salt).decode("ascii"),
-                                      crypt_ftr.keysize,
-                                      binascii.hexlify(encrypted_key).decode("ascii"),
-                                      binascii.hexlify(data).decode("ascii")))
+    print(
+        f'{os.path.basename(args[1])}:$fde${len(salt)}${binascii.hexlify(salt).decode("ascii")}${crypt_ftr.keysize}${binascii.hexlify(encrypted_key).decode("ascii")}${binascii.hexlify(data).decode("ascii")}'
+    )
 
 if __name__ == '__main__':
     main(sys.argv)

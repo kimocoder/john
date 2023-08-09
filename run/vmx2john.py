@@ -42,24 +42,24 @@ def process_file(target):
         sys.stderr.write("Unsupported format of the encryption.keySafe line:\n")
         return
 
-    iden = hexlify(base64.b64decode(match.group(1))).decode()
-    password_hash = match.group(2)
+    iden = hexlify(base64.b64decode(match[1])).decode()
+    password_hash = match[2]
     if password_hash != "PBKDF2-HMAC-SHA-1":
         sys.stderr.write("Unsupported password hashing algorithm (%s) found!\n" % password_hash)
         return
-    password_cipher = match.group(3)
+    password_cipher = match[3]
     if password_cipher != "AES-256":
         sys.stderr.write("Unsupported cipher (%s) found!\n" % password_cipher)
         return
 
-    iterations = int(match.group(4))
-    salt = hexlify(base64.b64decode(unquote(match.group(5))))
-    config_hash = match.group(6)
+    iterations = int(match[4])
+    salt = hexlify(base64.b64decode(unquote(match[5])))
+    config_hash = match[6]
     if config_hash != "HMAC-SHA-1":
         sys.stderr.write("Unsupported hashing algorithm (%s) found!\n" % config_hash)
         return
 
-    cipherdata = hexlify(base64.b64decode(match.group(7)))
+    cipherdata = hexlify(base64.b64decode(match[7]))
 
     sys.stdout.write("%s-%s:$vmx$1$0$0$%d$%s$%s\n" % (os.path.basename(target),
             name, iterations, salt, cipherdata))

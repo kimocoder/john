@@ -251,12 +251,31 @@ def process_file(filename):
         idata = data[i:i+OnDiskMainHeader_size]
 
         fields = struct.unpack(OnDiskMainHeader_fmt, idata)
-        headerMagic, headerType, headerSize, headerCRC, nextHeaderOffset, reserved, majorVersion, minorVersion, _, _, _, _, algorithm, salt, something, customTimeout, numBlocksReEncrypted, defaultRoot  = fields[0:18]
+        (
+            headerMagic,
+            headerType,
+            headerSize,
+            headerCRC,
+            nextHeaderOffset,
+            reserved,
+            majorVersion,
+            minorVersion,
+            _,
+            _,
+            _,
+            _,
+            algorithm,
+            salt,
+            something,
+            customTimeout,
+            numBlocksReEncrypted,
+            defaultRoot,
+        ) = fields[:18]
         if headerMagic == b"PGPd" and headerType == b"MAIN":
-            if algorithm != 7 and algorithm != 6 and algorithm != 5 and algorithm != 4 and algorithm != 3:
+            if algorithm not in [7, 6, 5, 4, 3]:
                 sys.stderr.write("Only AES-256, Twofish, CAST5, EME-AES, EME2-AES algorithms are supported currently. Found (%d) instead!\n" % algorithm)
                 return
-            if majorVersion != 7 and majorVersion != 6:
+            if majorVersion not in [7, 6]:
                 sys.stderr.write("Untested majorVersion (%d) found, not generating a hash!\n" % majorVersion)
                 return
             # print(fields)
@@ -274,7 +293,18 @@ def process_file(filename):
         idata = data[i:i+OnDiskUserWithSym_size]
 
         fields = struct.unpack(OnDiskUserWithSym_fmt, idata)
-        userMagic, userType, userSize, _, reserved, userName, EncryptedKey, CheckBytes, iterations, reserved2 = fields[0:10]
+        (
+            userMagic,
+            userType,
+            userSize,
+            _,
+            reserved,
+            userName,
+            EncryptedKey,
+            CheckBytes,
+            iterations,
+            reserved2,
+        ) = fields[:10]
         if userMagic == b"USER" and userType == b"SYMM":
             # print(fields)
             userName = userName.strip(b"\x00")
@@ -285,7 +315,7 @@ def process_file(filename):
             CheckBytes = hexlify(CheckBytes)
             if PY3:
                 CheckBytes = str(CheckBytes, 'ascii')
-            print("%s:$pgpdisk$0*%s*%s*%s*%s" % (userName, algorithm, iterations, salt, CheckBytes))
+            print(f"{userName}:$pgpdisk$0*{algorithm}*{iterations}*{salt}*{CheckBytes}")
 
     f.close()
 

@@ -22,7 +22,7 @@ def process(filename, ecryptfsrc):
             for line in f:
                 if line.startswith("salt="):
                     _, salt = line.strip().split("=")
-                    salt = salt[0:16]  # fixed size salt
+                    salt = salt[:16]
 
     with open(filename, "rb") as f:
         version = f.read(2)  # Read file version

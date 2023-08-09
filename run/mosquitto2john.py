@@ -20,18 +20,18 @@ def format_hmac(user, hash_data, hashcat):
     else it will return a valid john format hash for the 
     JtR pbkdf2-hmac-sha512 hash format"""
 
-    hcat_fmt_str = "sha512:{}:{}:{}"
     john_fmt_str = "{}:$pbkdf2-hmac-sha512${}.{}.{}"
     junk, morejunk, iterations, salt, digest = hash_data.split("$")
-    
+
     if hashcat:
+        hcat_fmt_str = "sha512:{}:{}:{}"
         #Everything just goes in base64 in this mode - nice & easy
         return hcat_fmt_str.format(iterations, salt, digest)
 
     # John format needs Hex conversions
     hex_digest = hexlify(b64decode(digest)).decode().upper()
     hex_salt = hexlify(b64decode(salt)).decode().upper()
-    
+
     return john_fmt_str.format(user, iterations, hex_salt, hex_digest)
 
 def format_sha512(user, hash_data, hashcat):
@@ -40,17 +40,17 @@ def format_sha512(user, hash_data, hashcat):
     else it will take a hash and return a valid john hash for the
     dynamic_82 John mode - sha512($password.$salt) """
 
-    hcat_fmt_str = "{}:{}"
     john_fmt_str = "{}:$dynamic_82${}$HEX${}"
     junk, morejunk, salt, digest = hash_data.split("$")
 
     # Convert hash and salt to hex - needed for both formats now
     hex_digest = hexlify(b64decode(digest)).decode().upper()
     hex_salt = hexlify(b64decode(salt)).decode().upper()
-    
+
     if hashcat:
+        hcat_fmt_str = "{}:{}"
         return hcat_fmt_str.format(hex_digest, hex_salt)
-    
+
     return john_fmt_str.format(user, hex_digest, hex_salt)
 
 def extract_hash(line, hmac_list, sha512_list, regex, hashcat):
@@ -68,11 +68,9 @@ def extract_hash(line, hmac_list, sha512_list, regex, hashcat):
     # We know mosquitto_passwd doesn't permit colons in the user field
     # but this isn't enforced in code, so quick check for that
     if m.group().count(":") > 1:
-        stderr.write(
-                "Invalid input. Try removing ':' from username:\n {}\n"
-                .format(m.group()))
+        stderr.write(f"Invalid input. Try removing ':' from username:\n {m.group()}\n")
         return
-    
+
     # Everything else in the hash is an int, $ or b64, so we can split on :
     user, hash_data = m.group().split(":")
 
@@ -80,14 +78,11 @@ def extract_hash(line, hmac_list, sha512_list, regex, hashcat):
     if hash_data.count("$") == 4:
         hmac_list.append(format_hmac(user, hash_data, hashcat))
 
-    # Get any plain SHA512s and put them in the sha512 list
     elif hash_data.count("$") == 3:
         sha512_list.append(format_sha512(user, hash_data, hashcat))
 
-    # Maybe there's a bad match some how?
     else:
-        stderr.write("Error parsing hash - bad format:\n{}".format(
-                hash_string))
+        stderr.write(f"Error parsing hash - bad format:\n{hash_string}")
 
 
 def process_file(hashfile, hashcat):
@@ -124,13 +119,12 @@ def process_file(hashfile, hashcat):
             extract_hash(line, hmac_list, sha512_list, regex, hashcat)
 
     # Write to stdout if we have any hashes
-    if len(sha512_list) > 0 or len(hmac_list) > 0:
+    if sha512_list or hmac_list:
         for h in sha512_list:
             stdout.write(h + "\n")
         for h in hmac_list:
             stdout.write(h + "\n")
 
-    # The other case is that we found nothing
     else:
         stderr.write(
                 "No hashes found. Is this a valid mosquitto_passwd file?\n")
@@ -160,8 +154,7 @@ if __name__ == "__main__":
             with open(passwd_file, 'r') as f:
                 pass
         except:
-            stderr.write("'{}' is not a readable file.\n".format(
-                passwd_file))
+            stderr.write(f"'{passwd_file}' is not a readable file.\n")
             exit(1)
         # Do the conversion stuff
         process_file(passwd_file, args.hashcat)

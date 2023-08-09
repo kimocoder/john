@@ -31,10 +31,7 @@ def process_file(filename):
     rows = cursor.execute("SELECT Z_PK, ZCRYPTOITERATIONCOUNT, ZCRYPTOSALT, ZCRYPTOWRAPPEDKEY, ZPASSWORDHINT, ZCRYPTOVERIFIER, ZISPASSWORDPROTECTED FROM ZICCLOUDSYNCINGOBJECT")
     for row in rows:
         iden, iterations, salt, fhash, hint, shash, is_protected = row
-        if fhash is None:
-            phash = shash
-        else:
-            phash = fhash
+        phash = shash if fhash is None else fhash
         if hint is None:
             hint = "None"
         # NOTE: is_protected can be zero even if iterations value is non-zero!

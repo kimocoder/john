@@ -27,16 +27,16 @@ def parseargs():
     parser.add_argument('--offset', nargs='?', type=int,
                         default=0,
                         help='the offset number in bytes to the BestCrypt partition')
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
 
 
 def get_metadata(disk_image, header_offset):
-    bc_file = open(args.disk_image, 'rb')
-    bc_file.seek(header_offset)
-    bc_data = bc_file.read(0x512)
-    bc_file.close()
-    if bc_data[0:0x20] == unhexlify(b'dda26a7e3a59ff453e350a44bcb4cdd572eacea8fa6484bb8d6612aebf3c6f47'):
+    with open(args.disk_image, 'rb') as bc_file:
+        bc_file.seek(header_offset)
+        bc_data = bc_file.read(0x512)
+    if bc_data[:0x20] == unhexlify(
+        b'dda26a7e3a59ff453e350a44bcb4cdd572eacea8fa6484bb8d6612aebf3c6f47'
+    ):
         crypto_type = bc_data[0x1e7:0x1e8]
         if bc_data[0x166:0x176] == b'\0' * 16:
             salt = bc_data[0x1e8:0x1f0]
@@ -52,10 +52,9 @@ def get_metadata(disk_image, header_offset):
 
 def main(args):
     offset = args.offset
-    bc_file = open(args.disk_image, 'rb')
-    bc_file.seek(offset)
-    bc_data = bc_file.read(0x512)
-    bc_file.close()
+    with open(args.disk_image, 'rb') as bc_file:
+        bc_file.seek(offset)
+        bc_data = bc_file.read(0x512)
     if bc_data[0x1fe:0x200] == b'\x55\xaa':
         for record in range(0, 64, 16):
             header_offset = offset + (0x200 * struct.unpack('<i', bc_data[0x1c6 + record:0x1ca + record])[0])

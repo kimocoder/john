@@ -52,7 +52,7 @@ class DNSException(Exception):
             self.kwargs = self._check_kwargs(**kwargs)
             self.msg = str(self)
         else:
-            self.kwargs = dict()  # defined but empty for old mode exceptions
+            self.kwargs = {}
         if self.msg is None:
             # doc string is better implicit message than empty string
             self.msg = self.__doc__
@@ -71,9 +71,9 @@ class DNSException(Exception):
 
     def _check_kwargs(self, **kwargs):
         if kwargs:
-            assert set(kwargs.keys()) == self.supp_kwargs, \
-                'following set of keyword args is required: %s' % (
-                    self.supp_kwargs)
+            assert (
+                set(kwargs.keys()) == self.supp_kwargs
+            ), f'following set of keyword args is required: {self.supp_kwargs}'
         return kwargs
 
     def _fmt_kwargs(self, **kwargs):
@@ -106,21 +106,15 @@ class DNSException(Exception):
 
 class FormError(DNSException):
     """DNS message is malformed."""
-
-
 class SyntaxError(DNSException):
     """Text input is malformed."""
-
-
 class UnexpectedEnd(SyntaxError):
     """Text input ended unexpectedly."""
-
-
 class TooBig(DNSException):
     """The DNS message is too big."""
 
 
 class Timeout(DNSException):
     """The DNS operation timed out."""
-    supp_kwargs = set(['timeout'])
+    supp_kwargs = {'timeout'}
     fmt = "The DNS operation timed out after {timeout} seconds"

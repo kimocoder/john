@@ -47,14 +47,12 @@ def export_to_john(filename):
             keys_len = len(keys)
 
             if keys_len == 0:
-                sys.stderr.write(
-                    "No keys found in the keystore file: %s%s" % (filename, os.linesep)
-                )
+                sys.stderr.write(f"No keys found in the keystore file: {filename}{os.linesep}")
             else:
                 for line in map(esk_to_john, keys):
                     print(line)
     except:
-        sys.stderr.write("Wrong secret key file or path: %s%s" % (filename, os.linesep))
+        sys.stderr.write(f"Wrong secret key file or path: {filename}{os.linesep}")
 
 
 if __name__ == "__main__":

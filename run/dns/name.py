@@ -16,6 +16,7 @@
 """DNS Names.
 """
 
+
 from io import BytesIO
 import struct
 import sys
@@ -54,42 +55,25 @@ NAMERELN_COMMONANCESTOR = 4
 
 class EmptyLabel(dns.exception.SyntaxError):
     """A DNS label is empty."""
-
-
 class BadEscape(dns.exception.SyntaxError):
     """An escaped code in a text format of DNS name is invalid."""
-
-
 class BadPointer(dns.exception.FormError):
     """A DNS compression pointer points forward instead of backward."""
-
-
 class BadLabelType(dns.exception.FormError):
     """The label type in DNS name wire format is unknown."""
-
-
 class NeedAbsoluteNameOrOrigin(dns.exception.DNSException):
     """An attempt was made to convert a non-absolute name to
     wire when there was also a non-absolute (or missing) origin."""
-
-
 class NameTooLong(dns.exception.FormError):
     """A DNS name is > 255 octets long."""
-
-
 class LabelTooLong(dns.exception.SyntaxError):
     """A DNS label is > 63 octets long."""
-
-
 class AbsoluteConcatenation(dns.exception.DNSException):
     """An attempt was made to append anything other than the
     empty name to an absolute DNS name."""
-
-
 class NoParent(dns.exception.DNSException):
     """An attempt was made to get the parent of the root name
     or the empty name."""
-
 class NoIDNA2008(dns.exception.DNSException):
     """IDNA 2008 processing was requested but the idna module is not
     available."""
@@ -98,7 +82,7 @@ class NoIDNA2008(dns.exception.DNSException):
 class IDNAException(dns.exception.DNSException):
     """IDNA processing raised an exception."""
 
-    supp_kwargs = set(['idna_exception'])
+    supp_kwargs = {'idna_exception'}
     fmt = "IDNA processing exception: {idna_exception}"
 
 
@@ -194,10 +178,7 @@ class IDNA2008Codec(IDNACodec):
         self.strict_decode = strict_decode
 
     def is_all_ascii(self, label):
-        for c in label:
-            if ord(c) > 0x7f:
-                return False
-        return True
+        return all(ord(c) <= 0x7f for c in label)
 
     def encode(self, label):
         if label == '':
@@ -261,13 +242,10 @@ def _escapify(label, unicode_mode=False):
     if isinstance(label, binary_type):
         label = label.decode()
     for c in label:
-        if c > u'\x20' and c < u'\x7f':
+        if (c <= u'\x20' or c >= u'\x7f') and c >= u'\x7f' or c > u'\x20':
             text += c
         else:
-            if c >= u'\x7f':
-                text += c
-            else:
-                text += u'\\%03d' % ord(c)
+            text += u'\\%03d' % ord(c)
     return text
 
 def _validate_labels(labels):
@@ -285,15 +263,13 @@ def _validate_labels(labels):
     l = len(labels)
     total = 0
     i = -1
-    j = 0
-    for label in labels:
+    for j, label in enumerate(labels):
         ll = len(label)
         total += ll + 1
         if ll > 63:
             raise LabelTooLong
         if i < 0 and label == b'':
             i = j
-        j += 1
     if total > 255:
         raise NameTooLong
     if i >= 0 and i != l - 1:
@@ -413,18 +389,11 @@ class Name(object):
         sabs = self.is_absolute()
         oabs = other.is_absolute()
         if sabs != oabs:
-            if sabs:
-                return (NAMERELN_NONE, 1, 0)
-            else:
-                return (NAMERELN_NONE, -1, 0)
+            return (NAMERELN_NONE, 1, 0) if sabs else (NAMERELN_NONE, -1, 0)
         l1 = len(self.labels)
         l2 = len(other.labels)
         ldiff = l1 - l2
-        if ldiff < 0:
-            l = l1
-        else:
-            l = l2
-
+        l = l1 if ldiff < 0 else l2
         order = 0
         nlabels = 0
         namereln = NAMERELN_NONE
@@ -446,9 +415,9 @@ class Name(object):
                 return (namereln, order, nlabels)
             nlabels += 1
         order = ldiff
-        if ldiff < 0:
+        if order < 0:
             namereln = NAMERELN_SUPERDOMAIN
-        elif ldiff > 0:
+        elif order > 0:
             namereln = NAMERELN_SUBDOMAIN
         else:
             namereln = NAMERELN_EQUAL
@@ -464,9 +433,7 @@ class Name(object):
         """
 
         (nr, o, nl) = self.fullcompare(other)
-        if nr == NAMERELN_SUBDOMAIN or nr == NAMERELN_EQUAL:
-            return True
-        return False
+        return nr in [NAMERELN_SUBDOMAIN, NAMERELN_EQUAL]
 
     def is_superdomain(self, other):
         """Is self a superdomain of other?
@@ -478,9 +445,7 @@ class Name(object):
         """
 
         (nr, o, nl) = self.fullcompare(other)
-        if nr == NAMERELN_SUPERDOMAIN or nr == NAMERELN_EQUAL:
-            return True
-        return False
+        return nr in [NAMERELN_SUPERDOMAIN, NAMERELN_EQUAL]
 
     def canonicalize(self):
         """Return a name which is equal to the current name, but is in
@@ -490,16 +455,10 @@ class Name(object):
         return Name([x.lower() for x in self.labels])
 
     def __eq__(self, other):
-        if isinstance(other, Name):
-            return self.fullcompare(other)[1] == 0
-        else:
-            return False
+        return self.fullcompare(other)[1] == 0 if isinstance(other, Name) else False
 
     def __ne__(self, other):
-        if isinstance(other, Name):
-            return self.fullcompare(other)[1] != 0
-        else:
-            return True
+        return self.fullcompare(other)[1] != 0 if isinstance(other, Name) else True
 
     def __lt__(self, other):
         if isinstance(other, Name):
@@ -526,7 +485,7 @@ class Name(object):
             return NotImplemented
 
     def __repr__(self):
-        return '<DNS name ' + self.__str__() + '>'
+        return f'<DNS name {self.__str__()}>'
 
     def __str__(self):
         return self.to_text(False)
@@ -545,10 +504,7 @@ class Name(object):
             return maybe_decode(b'@')
         if len(self.labels) == 1 and self.labels[0] == b'':
             return maybe_decode(b'.')
-        if omit_final_dot and self.is_absolute():
-            l = self.labels[:-1]
-        else:
-            l = self.labels
+        l = self.labels[:-1] if omit_final_dot and self.is_absolute() else self.labels
         s = b'.'.join(map(_escapify, l))
         return maybe_decode(s)
 
@@ -574,10 +530,7 @@ class Name(object):
             return u'@'
         if len(self.labels) == 1 and self.labels[0] == b'':
             return u'.'
-        if omit_final_dot and self.is_absolute():
-            l = self.labels[:-1]
-        else:
-            l = self.labels
+        l = self.labels[:-1] if omit_final_dot and self.is_absolute() else self.labels
         if idna_codec is None:
             idna_codec = IDNA_2003_Practical
         return u'.'.join([idna_codec.decode(x) for x in l])
@@ -647,10 +600,7 @@ class Name(object):
         for label in labels:
             n = Name(labels[i:])
             i += 1
-            if compress is not None:
-                pos = compress.get(n)
-            else:
-                pos = None
+            pos = compress.get(n) if compress is not None else None
             if pos is not None:
                 value = 0xc000 + pos
                 s = struct.pack('!H', value)
@@ -748,10 +698,7 @@ class Name(object):
         Returns a ``dns.name.Name``.
         """
 
-        if not self.is_absolute():
-            return self.concatenate(origin)
-        else:
-            return self
+        return self.concatenate(origin) if not self.is_absolute() else self
 
     def choose_relativity(self, origin=None, relativize=True):
         """Return a name with the relativity desired by the caller.
@@ -765,10 +712,7 @@ class Name(object):
         """
 
         if origin:
-            if relativize:
-                return self.relativize(origin)
-            else:
-                return self.derelativize(origin)
+            return self.relativize(origin) if relativize else self.derelativize(origin)
         else:
             return self
 
@@ -783,7 +727,7 @@ class Name(object):
         Returns a ``dns.name.Name``.
         """
 
-        if self == root or self == empty:
+        if self in [root, empty]:
             raise NoParent
         return Name(self.labels[1:])
 
@@ -863,7 +807,7 @@ def from_unicode(text, origin=root, idna_codec=None):
         else:
             labels.append(b'')
 
-    if (len(labels) == 0 or labels[-1] != b'') and origin is not None:
+    if (not labels or labels[-1] != b'') and origin is not None:
         labels.extend(list(origin.labels))
     return Name(labels)
 
@@ -935,7 +879,7 @@ def from_text(text, origin=root, idna_codec=None):
             labels.append(label)
         else:
             labels.append(b'')
-    if (len(labels) == 0 or labels[-1] != b'') and origin is not None:
+    if (not labels or labels[-1] != b'') and origin is not None:
         labels.extend(list(origin.labels))
     return Name(labels)
 

@@ -26,32 +26,28 @@ import os
 
 def process_file(filename):
 
-    f = open(filename, "rb")
+    with open(filename, "rb") as f:
+        data = f.read(4)
+        if data != magic:
+            sys.stderr.write("%s : PWS3 magic string missing, is this a Password Safe file?\n" % filename)
+            return
 
-    data = f.read(4)
-    if data != magic:
-        sys.stderr.write("%s : PWS3 magic string missing, is this a Password Safe file?\n" % filename)
-        return
+        buf = f.read(32)
+        if len(buf) != 32:
+            sys.std.write("Error: salt read failed.\n")
+            return
 
-    buf = f.read(32)
-    if len(buf) != 32:
-        sys.std.write("Error: salt read failed.\n")
-        return
+        iterations = struct.unpack("<I", f.read(4))[0]
 
-    iterations = struct.unpack("<I", f.read(4))[0]
-
-    sys.stdout.write("%s:$pwsafe$*3*" %
-                     os.path.basename(filename).rstrip(".psafe3"))
-    sys.stdout.write(hexlify(buf).decode('ascii'))
-    sys.stdout.write("*%s*" % iterations)
-    hsh = f.read(32)
-    if len(hsh) != 32:
-        sys.stderr.write("Error: hash read failed.\n")
-        return
-    sys.stdout.write(hexlify(hsh).decode('ascii'))
-    sys.stdout.write("\n")
-
-    f.close()
+        sys.stdout.write(f'{os.path.basename(filename).rstrip(".psafe3")}:$pwsafe$*3*')
+        sys.stdout.write(hexlify(buf).decode('ascii'))
+        sys.stdout.write(f"*{iterations}*")
+        hsh = f.read(32)
+        if len(hsh) != 32:
+            sys.stderr.write("Error: hash read failed.\n")
+            return
+        sys.stdout.write(hexlify(hsh).decode('ascii'))
+        sys.stdout.write("\n")
 
 
 if __name__ == "__main__":

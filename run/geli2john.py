@@ -67,7 +67,7 @@ def process_file(filename):
         sys.stderr.write(sfilename + " : md_version '%s' not supported yet!\n" % md_version)
         return
 
-    if md_ealgo != CRYPTO_AES_XTS and md_ealgo != CRYPTO_AES_CBC:
+    if md_ealgo not in [CRYPTO_AES_XTS, CRYPTO_AES_CBC]:
         sys.stderr.write(sfilename + " : md_ealgo '%s' not supported yet!\n" % md_ealgo)
         return
 

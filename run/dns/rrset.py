@@ -51,17 +51,12 @@ class RRset(dns.rdataset.Rdataset):
         return obj
 
     def __repr__(self):
-        if self.covers == 0:
-            ctext = ''
-        else:
-            ctext = '(' + dns.rdatatype.to_text(self.covers) + ')'
+        ctext = '' if self.covers == 0 else f'({dns.rdatatype.to_text(self.covers)})'
         if self.deleting is not None:
-            dtext = ' delete=' + dns.rdataclass.to_text(self.deleting)
+            dtext = f' delete={dns.rdataclass.to_text(self.deleting)}'
         else:
             dtext = ''
-        return '<DNS ' + str(self.name) + ' ' + \
-               dns.rdataclass.to_text(self.rdclass) + ' ' + \
-               dns.rdatatype.to_text(self.rdtype) + ctext + dtext + ' RRset>'
+        return f'<DNS {str(self.name)} {dns.rdataclass.to_text(self.rdclass)} {dns.rdatatype.to_text(self.rdtype)}{ctext}{dtext} RRset>'
 
     def __str__(self):
         return self.to_text()
@@ -69,9 +64,7 @@ class RRset(dns.rdataset.Rdataset):
     def __eq__(self, other):
         if not isinstance(other, RRset):
             return False
-        if self.name != other.name:
-            return False
-        return super(RRset, self).__eq__(other)
+        return False if self.name != other.name else super(RRset, self).__eq__(other)
 
     def match(self, name, rdclass, rdtype, covers, deleting=None):
         """Returns ``True`` if this rrset matches the specified class, type,
@@ -80,9 +73,7 @@ class RRset(dns.rdataset.Rdataset):
 
         if not super(RRset, self).match(rdclass, rdtype, covers):
             return False
-        if self.name != name or self.deleting != deleting:
-            return False
-        return True
+        return self.name == name and self.deleting == deleting
 
     def to_text(self, origin=None, relativize=True, **kw):
         """Convert the RRset into DNS master file format.

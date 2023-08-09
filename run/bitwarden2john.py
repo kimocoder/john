@@ -64,10 +64,10 @@ def process_xml_file(filename):
     for item in root:
         if item.tag == 'string':
             name = item.attrib['name']
-            if name == "encKey":
-                enc_key = item.text
             if name == "email":
                 email = item.text
+            elif name == "encKey":
+                enc_key = item.text
     return email, enc_key
 
 

@@ -49,14 +49,14 @@ def process(filename, plaintext=None, cipher=0, md=0, minascii=0):
         salt = data[8:16]
         salt = hexlify(salt).decode("ascii")
 
+        if plaintext:
+            s = f"1${plaintext}"
+        elif minascii:
+            s = "2$%d" % minascii
+        else:
+            s = "0"
         if rlen <= 16:
             last_chunk = data[-16:]
-            if plaintext:
-                s = "1$%s" % plaintext
-            elif minascii:
-                s = "2$%d" % minascii
-            else:
-                s = "0"
             last_chunk = hexlify(last_chunk).decode("ascii")
             sys.stdout.write("%s:$openssl$%s$%s$8$%s$%s$1$%s\n" %
                              (filename, cipher, md, salt, last_chunk, s))
@@ -64,12 +64,6 @@ def process(filename, plaintext=None, cipher=0, md=0, minascii=0):
             last_chunk = data[-32:]
             # try to decode maximum of 16
             rdata = data[16:16*17]
-            if plaintext:
-                s = "1$%s" % plaintext
-            elif minascii:
-                s = "2$%d" % minascii
-            else:
-                s = "0"
             last_chunk = hexlify(last_chunk).decode("ascii")
             rdata = hexlify(rdata).decode("ascii")
             sys.stdout.write("%s:$openssl$%s$%s$8$%s$%s$0$%s$%s$%s\n" %

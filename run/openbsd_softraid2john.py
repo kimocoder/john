@@ -58,21 +58,23 @@ def process_file(filename):
         return
 
     sr_crypto_genkdf_type = struct.unpack("<I", headers[2416:2420])[0]
-    if (sr_crypto_genkdf_type != SR_CRYPTOKDFT_PKCS5_PBKDF2 and
-            sr_crypto_genkdf_type != SR_CRYPTOKDFT_BCRYPT_PBKDF):
+    if sr_crypto_genkdf_type not in [
+        SR_CRYPTOKDFT_PKCS5_PBKDF2,
+        SR_CRYPTOKDFT_BCRYPT_PBKDF,
+    ]:
         sys.stderr.write("%s : kdf of type '%s' is not supported yet!\n" %
                          (os.path.basename(filename), sr_crypto_genkdf_type))
         return
 
-    sys.stdout.write(os.path.basename(filename) + ":$openbsd-softraid$")
+    sys.stdout.write(f"{os.path.basename(filename)}:$openbsd-softraid$")
 
     # num_iterations and salt come from the "scm_kdfhint" field
     num_iterations = struct.unpack("<I", headers[2420:2424])[0]
-    sys.stdout.write(str(num_iterations) + "$")
-    sys.stdout.write(hexlify(headers[2424:2552]) + "$")  # salt
+    sys.stdout.write(f"{str(num_iterations)}$")
+    sys.stdout.write(f"{hexlify(headers[2424:2552])}$")
 
     # masked keys, sr_meta_crypto structure
-    sys.stdout.write(hexlify(headers[364:2412]) + "$")
+    sys.stdout.write(f"{hexlify(headers[364:2412])}$")
 
     # HMAC, chk_hmac_sha1 field
     sys.stdout.write(hexlify(headers[2676:2696]))

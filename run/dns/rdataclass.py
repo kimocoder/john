@@ -15,6 +15,7 @@
 
 """DNS Rdata Classes."""
 
+
 import re
 
 import dns.exception
@@ -39,16 +40,12 @@ _by_text = {
 # cannot make any mistakes (e.g. omissions, cut-and-paste errors) that
 # would cause the mapping not to be true inverse.
 
-_by_value = dict((y, x) for x, y in _by_text.items())
+_by_value = {y: x for x, y in _by_text.items()}
 
 # Now that we've built the inverse map, we can add class aliases to
 # the _by_text mapping.
 
-_by_text.update({
-    'INTERNET': IN,
-    'CHAOS': CH,
-    'HESIOD': HS
-})
+_by_text |= {'INTERNET': IN, 'CHAOS': CH, 'HESIOD': HS}
 
 _metaclasses = {
     NONE: True,
@@ -103,7 +100,7 @@ def to_text(value):
         raise ValueError("class must be between >= 0 and <= 65535")
     text = _by_value.get(value)
     if text is None:
-        text = 'CLASS' + repr(value)
+        text = f'CLASS{repr(value)}'
     return text
 
 
@@ -115,6 +112,4 @@ def is_metaclass(rdclass):
     *rdclass* is an ``int``.
     """
 
-    if rdclass in _metaclasses:
-        return True
-    return False
+    return rdclass in _metaclasses

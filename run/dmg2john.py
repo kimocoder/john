@@ -76,14 +76,27 @@ def process_file(filename):
                 len_wrapped_aes_key, wrapped_aes_key, len_hmac_sha1_key,
                 wrapped_hmac_sha1_key, _, _, _) = data
 
-        sys.stdout.write("%s:$dmg$%d*%d*%s*%d*%s*%d*%s*%d::::%s\n" % \
-            (os.path.basename(filename), headerver, kdf_salt_len,
-             hexlify(kdf_salt)[0:kdf_salt_len * 2].decode("ascii"),
-             len_wrapped_aes_key,
-             hexlify(wrapped_aes_key)[0:len_wrapped_aes_key * 2].decode("ascii"),
-             len_hmac_sha1_key,
-             hexlify(wrapped_hmac_sha1_key)[0:len_hmac_sha1_key * 2].decode("ascii"),
-             kdf_iteration_count, filename))
+        sys.stdout.write(
+            (
+                "%s:$dmg$%d*%d*%s*%d*%s*%d*%s*%d::::%s\n"
+                % (
+                    os.path.basename(filename),
+                    headerver,
+                    kdf_salt_len,
+                    hexlify(kdf_salt)[: kdf_salt_len * 2].decode("ascii"),
+                    len_wrapped_aes_key,
+                    hexlify(wrapped_aes_key)[: len_wrapped_aes_key * 2].decode(
+                        "ascii"
+                    ),
+                    len_hmac_sha1_key,
+                    hexlify(wrapped_hmac_sha1_key)[
+                        : len_hmac_sha1_key * 2
+                    ].decode("ascii"),
+                    kdf_iteration_count,
+                    filename,
+                )
+            )
+        )
     else:
         fd.seek(0, 0)
         data = fd.read(v2_header_size)
@@ -102,7 +115,7 @@ def process_file(filename):
         fd.seek(dataoffset, 0)
         cno = ((datasize + 4095) // 4096) - 2
         data_size = datasize - cno * 4096
-        data_size = int(data_size)
+        data_size = data_size
         if data_size < 0:
             sys.stderr.write("%s is not a valid DMG file! \n" % filename)
             return
@@ -126,18 +139,35 @@ def process_file(filename):
             return
 
         # output hash
-        sys.stdout.write("%s:$dmg$%d*%d*%s*32*%s*%d*%s*%d*%d*%s*1*%s*%d::::%s\n" % \
-                (os.path.basename(filename), headerver,
-                kdf_salt_len,
-                hexlify(kdf_salt)[0:kdf_salt_len*2].decode("ascii"),
-                hexlify(blob_enc_iv)[0:64].decode("ascii"),
-                encrypted_keyblob_size,
-                hexlify(encrypted_keyblob)[0:encrypted_keyblob_size*2].decode("ascii") + \
-                 "0" * (encrypted_keyblob_size * 2 - \
-                len(encrypted_keyblob) * 2),
-                cno, data_size, hexlify(chunk1).decode("ascii"),
-                hexlify(chunk2).decode("ascii"),
-                kdf_iteration_count, filename))
+        sys.stdout.write(
+            (
+                "%s:$dmg$%d*%d*%s*32*%s*%d*%s*%d*%d*%s*1*%s*%d::::%s\n"
+                % (
+                    os.path.basename(filename),
+                    headerver,
+                    kdf_salt_len,
+                    hexlify(kdf_salt)[: kdf_salt_len * 2].decode("ascii"),
+                    hexlify(blob_enc_iv)[:64].decode("ascii"),
+                    encrypted_keyblob_size,
+                    (
+                        hexlify(encrypted_keyblob)[
+                            : encrypted_keyblob_size * 2
+                        ].decode("ascii")
+                        + "0"
+                        * (
+                            encrypted_keyblob_size * 2
+                            - len(encrypted_keyblob) * 2
+                        )
+                    ),
+                    cno,
+                    data_size,
+                    hexlify(chunk1).decode("ascii"),
+                    hexlify(chunk2).decode("ascii"),
+                    kdf_iteration_count,
+                    filename,
+                )
+            )
+        )
 
 if __name__ == "__main__":
     sys.stderr.write("Using 'dmg2john' instead of this program (%s) is recommended!\n\n" % sys.argv[0])

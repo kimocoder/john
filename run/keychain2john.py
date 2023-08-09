@@ -51,58 +51,55 @@ magic = b"\xfa\xde\x07\x11"
 
 def process_file(filename):
 
-    f = open(filename, "rb")
+    with open(filename, "rb") as f:
+        f.seek(-4, 2)
 
-    f.seek(-4, 2)
+        while True:
+            f.seek(-8, 1)
+            data = f.read(4)
+            if len(data) < 4:
+                msg = "%s : Couldn't find db key. Is it a keychain file?\n"
+                sys.stderr.write(msg % filename)
+                sys.exit(1)
 
-    while True:
-        f.seek(-8, 1)
-        data = f.read(4)
-        if len(data) < 4:
-            msg = "%s : Couldn't find db key. Is it a keychain file?\n"
-            sys.stderr.write(msg % filename)
+            if data == magic:
+                break
+
+        pos = f.tell() - 4
+
+        # ciphertext offset
+        f.seek(pos + 8, 0)
+        cipheroff = struct.unpack(">I", f.read(4))[0]
+
+        # salt
+        f.seek(pos + 44, 0)
+        salt = f.read(SALTLEN)
+        if len(salt) != SALTLEN:
+            sys.stderr.write("Something went wrong - fread(salt) error\n")
             sys.exit(1)
 
-        if data == magic:
-            break
+        # IV
+        f.seek(pos + 64, 0)
+        iv = f.read(IVLEN)
+        if len(iv) != IVLEN:
+            sys.stderr.write("Something went wrong - fread(iv) error\n")
+            sys.exit(1)
 
-    pos = f.tell() - 4
+        # ciphertext
+        f.seek(pos + cipheroff, 0)
+        ct = f.read(CTLEN)
+        if len(ct) != CTLEN:
+            sys.stderr.write("Something went wrong - fread(ct) error\n")
+            sys.exit(1)
 
-    # ciphertext offset
-    f.seek(pos + 8, 0)
-    cipheroff = struct.unpack(">I", f.read(4))[0]
-
-    # salt
-    f.seek(pos + 44, 0)
-    salt = f.read(SALTLEN)
-    if len(salt) != SALTLEN:
-        sys.stderr.write("Something went wrong - fread(salt) error\n")
-        sys.exit(1)
-
-    # IV
-    f.seek(pos + 64, 0)
-    iv = f.read(IVLEN)
-    if len(iv) != IVLEN:
-        sys.stderr.write("Something went wrong - fread(iv) error\n")
-        sys.exit(1)
-
-    # ciphertext
-    f.seek(pos + cipheroff, 0)
-    ct = f.read(CTLEN)
-    if len(ct) != CTLEN:
-        sys.stderr.write("Something went wrong - fread(ct) error\n")
-        sys.exit(1)
-
-    # output
-    sys.stdout.write("%s:$keychain$*" % os.path.basename(filename))
-    sys.stdout.write(hexlify(salt).decode("ascii"))
-    sys.stdout.write("*")
-    sys.stdout.write(hexlify(iv).decode("ascii"))
-    sys.stdout.write("*")
-    sys.stdout.write(hexlify(ct).decode("ascii"))
-    sys.stdout.write("\n")
-
-    f.close()
+            # output
+        sys.stdout.write(f"{os.path.basename(filename)}:$keychain$*")
+        sys.stdout.write(hexlify(salt).decode("ascii"))
+        sys.stdout.write("*")
+        sys.stdout.write(hexlify(iv).decode("ascii"))
+        sys.stdout.write("*")
+        sys.stdout.write(hexlify(ct).decode("ascii"))
+        sys.stdout.write("\n")
 
 
 if __name__ == "__main__":

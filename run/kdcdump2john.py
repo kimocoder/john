@@ -23,17 +23,15 @@ if (len(sys.argv) < 2):
     usage()
     exit()
 
-dump_f = open(sys.argv[1], "r")
-name = "unknown"
-for l in dump_f.readlines():
-    i = l.split(",")
-    if (len(i) == 1):
-        if (l.strip()):
-            name = l.strip()
-    if (i[0] == "23"):
-        sys.stdout.write("%s:$NT$%s\n" % (name, i[1].strip()))
-    elif (i[0] == "18"):
-        salt = name.split("@")[1] + name.split("@")[0].replace("/", "")
-        sys.stdout.write("%s:$krb18$%s$%s\n" % (name, salt, i[1].strip()))
-
-dump_f.close()
+with open(sys.argv[1], "r") as dump_f:
+    name = "unknown"
+    for l in dump_f:
+        i = l.split(",")
+        if (len(i) == 1):
+            if (l.strip()):
+                name = l.strip()
+        if (i[0] == "23"):
+            sys.stdout.write("%s:$NT$%s\n" % (name, i[1].strip()))
+        elif (i[0] == "18"):
+            salt = name.split("@")[1] + name.split("@")[0].replace("/", "")
+            sys.stdout.write("%s:$krb18$%s$%s\n" % (name, salt, i[1].strip()))

@@ -66,11 +66,7 @@ if __name__ == '__main__':
 
     for arg in sys.argv[1:]:
 
-        if arg == '-':
-            f = sys.stdin
-        else:
-            f = open(arg, 'rb')
-
+        f = sys.stdin if arg == '-' else open(arg, 'rb')
         orion2john(f, sys.stdout)
 
         if f != sys.stdin:

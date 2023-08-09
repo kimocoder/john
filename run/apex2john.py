@@ -4,7 +4,7 @@ import sys
 
 def process_file(filename):
     with open(filename, "r") as f:
-        for line in f.readlines():
+        for line in f:
             data = line.split(',')
 
             try:

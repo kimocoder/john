@@ -181,7 +181,7 @@ class Principal:
     def parsefile(self, f):
         self.name_type, self.num_components = struct.unpack(">LL", f.read(8))
         self.realm.parsefile(f)
-        for i in range(0, self.num_components):
+        for _ in range(0, self.num_components):
             component = CountedOctet()
             component.parsefile(f)
             self.components.append(component.data)
@@ -273,10 +273,10 @@ class Credential:
         self.is_skey, = struct.unpack(">B", f.read(1))
         self.tktFlags, = struct.unpack("<I", f.read(4))
         self.num_address, = struct.unpack(">I", f.read(4))
-        for i in range(0, self.num_address):
+        for _ in range(0, self.num_address):
             self.address.append(Address().parsefile(f))
         self.num_authdata, = struct.unpack(">I", f.read(4))
-        for i in range(0, self.num_authdata):
+        for _ in range(0, self.num_authdata):
             self.authdata.append(AuthData().parsefile(f))
         self.ticket.parsefile(f)
         self.secondticket.parsefile(f)
@@ -404,9 +404,7 @@ class PName:
             rem_length -= (2 + l)
 
     def tostring(self):
-        r = ''
-        for s in self.principal_components:
-            r += '\x1B' + chr(len(s)) + s
+        r = ''.join('\x1B' + chr(len(s)) + s for s in self.principal_components)
         r = p(r, clen(r))
         r = p(r, '\x30')
         r = p(r, clen(r))
@@ -552,9 +550,7 @@ class SName:
             rem_length -= (2 + l)
 
     def tostring(self):
-        r = ''
-        for s in self.server_components:
-            r += '\x1B' + chr(len(s)) + s
+        r = ''.join('\x1B' + chr(len(s)) + s for s in self.server_components)
         r = p(r, clen(r))
         r = p(r, '\x30')
         r = p(r, clen(r))
@@ -741,6 +737,7 @@ def swap32(i):
 #define TKT_FLG_ANONYMOUS               0x00008000
 """
 
+
 TKT_FLG_INITIAL = 0x00400000
 
 if __name__ == "__main__":
@@ -765,11 +762,9 @@ if __name__ == "__main__":
             time.sleep(2)
 
             # Check if you've reached the end of the file. If not get the next credential
-            while(f.read(1) != ''):
+            while (f.read(1) != ''):
                 f.seek(-1, 1)
                 credential.parsefile(f)
-                out = []
-
                 KrbCred = KrbCredHeader()
                 KrbCred.ticketpart.ticket = credential.ticket.data  # extract hash from here!
                 try:
@@ -803,9 +798,11 @@ if __name__ == "__main__":
                 krbcredinfo.srealm.server_realm = credential.server.realm.data
                 # print(credential.server.realm.data)
                 krbcredinfo.sname.server_components = credential.server.components
-                for c in credential.server.components:  # dirty hack
-                    if c not in ['krbtgt', 'krb5_ccache_conf_data', 'pa_type']:
-                        out.append(c)
+                out = [
+                    c
+                    for c in credential.server.components
+                    if c not in ['krbtgt', 'krb5_ccache_conf_data', 'pa_type']
+                ]
                 name = b"-".join(out[-2:])
                 krbcredinfo.sname.server_name_type = credential.server.name_type
                 krbcredinfo.createkrbcrdinfo()

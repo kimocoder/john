@@ -15,16 +15,18 @@
 
 """Hashing backwards compatibility wrapper"""
 
+
 import hashlib
 
 
-hashes = {}
-hashes['MD5'] = hashlib.md5
-hashes['SHA1'] = hashlib.sha1
-hashes['SHA224'] = hashlib.sha224
-hashes['SHA256'] = hashlib.sha256
-hashes['SHA384'] = hashlib.sha384
-hashes['SHA512'] = hashlib.sha512
+hashes = {
+    'MD5': hashlib.md5,
+    'SHA1': hashlib.sha1,
+    'SHA224': hashlib.sha224,
+    'SHA256': hashlib.sha256,
+    'SHA384': hashlib.sha384,
+    'SHA512': hashlib.sha512,
+}
 
 
 def get(algorithm):

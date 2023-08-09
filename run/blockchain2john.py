@@ -42,31 +42,28 @@ if __name__ == '__main__':
                 # hack for version 2.0 and 3.0 wallets
                 try:
                     decoded_data = json.loads(data.decode("utf-8"))
-                    if "version" in decoded_data and (str(decoded_data["version"]) == "2" or str(decoded_data["version"]) == "3" or str(decoded_data["version"]) == "4"):
+                    if "version" in decoded_data and str(
+                        decoded_data["version"]
+                    ) in {"2", "3", "4"}:
                         payload = base64.b64decode(decoded_data["payload"])
                         iterations = decoded_data["pbkdf2_iterations"]
-                        print("%s:$blockchain$v2$%s$%s$%s" % (
-                            os.path.basename(filename), iterations, len(payload),
-                            binascii.hexlify(payload).decode(("ascii"))))
+                        print(
+                            f'{os.path.basename(filename)}:$blockchain$v2${iterations}${len(payload)}${binascii.hexlify(payload).decode("ascii")}'
+                        )
                 except:
                     traceback.print_exc()
-                    pass
-
             if args.base64:
                 # handle blockchain version 1 wallet format files which contain
                 # only a base64 encoded string
                 try:
-                    if PY3:
-                        ddata = base64.decodebytes(data)
-                    else:
-                        ddata = base64.decodestring(data)
-                    print("%s:$blockchain$%s$%s" % (
-                        os.path.basename(filename), len(ddata),
-                        binascii.hexlify(ddata).decode("ascii")))
+                    ddata = base64.decodebytes(data) if PY3 else base64.decodestring(data)
+                    print(
+                        f'{os.path.basename(filename)}:$blockchain${len(ddata)}${binascii.hexlify(ddata).decode("ascii")}'
+                    )
                 except:
                     pass
 
             if not (args.json or args.base64):  # version 1 wallet format
-                print("%s:$blockchain$%s$%s" % (
-                    os.path.basename(filename), len(data),
-                    binascii.hexlify(data).decode("ascii")))
+                print(
+                    f'{os.path.basename(filename)}:$blockchain${len(data)}${binascii.hexlify(data).decode("ascii")}'
+                )

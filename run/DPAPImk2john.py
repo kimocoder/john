@@ -295,7 +295,7 @@ def pbkdf2_ms(passphrase, salt, keylen, iterations, digest='sha1'):
         U = salt + struct.pack("!L", i)
         i += 1
         derived = bytearray(hmac.new(passphrase, U, digestmod=lambda: hashlib.new(digest)).digest())
-        for r in range(iterations - 1):
+        for _ in range(iterations - 1):
             actual = bytearray(hmac.new(passphrase, derived, digestmod=lambda: hashlib.new(digest)).digest())
             derived = bytearray([x ^ y for (x, y) in zip(derived, actual)])
         buff += derived
@@ -313,7 +313,7 @@ def pbkdf2(passphrase, salt, keylen, iterations, digest='sha1'):
         i += 1
         derived = bytearray(hmac.new(passphrase, U, digestmod=lambda: hashlib.new(digest)).digest())
         actual = derived
-        for r in range(iterations - 1):
+        for _ in range(iterations - 1):
             actual = bytearray(hmac.new(passphrase, actual, digestmod=lambda: hashlib.new(digest)).digest())
             derived = bytearray([x ^ y for (x, y) in zip(derived, actual)])
         buff += derived
@@ -332,8 +332,7 @@ def dataDecrypt(cipherAlgo, hashAlgo, raw, encKey, iv, rounds):
     key = key[:cipherAlgo.keyLength]
     iv = iv[:cipherAlgo.ivLength]
     cipher = cipherAlgo.module.new(key, mode=cipherAlgo.module.MODE_CBC, IV=iv)
-    cleartxt = cipher.decrypt(raw)
-    return cleartxt
+    return cipher.decrypt(raw)
 
 
 def DPAPIHmac(hashAlgo, pwdhash, hmacSalt, value):
@@ -354,7 +353,9 @@ def display_masterkey(Preferred):
     GUID = struct.unpack("<LHH", GUID1)
     GUID2 = struct.unpack(">HLH", GUID2)
 
-    print("%s-%s-%s-%s-%s%s" % (format(GUID[0], '08x'), format(GUID[1], '04x'), format(GUID[2], '04x'), format(GUID2[0], '04x'), format(GUID2[1], '08x'), format(GUID2[2], '04x')))
+    print(
+        f"{format(GUID[0], '08x')}-{format(GUID[1], '04x')}-{format(GUID[2], '04x')}-{format(GUID2[0], '04x')}-{format(GUID2[1], '08x')}{format(GUID2[2], '04x')}"
+    )
 
 
 class MasterKey(DataStruct):
@@ -420,7 +421,7 @@ class MasterKey(DataStruct):
             hmac_algo = "sha512"
             cipher_algo = "aes256"
         else:
-            return "Unsupported combination of cipher '%s' and hash algorithm '%s' found!" % (self.cipherAlgo, self.hashAlgo)
+            return f"Unsupported combination of cipher '{self.cipherAlgo}' and hash algorithm '{self.hashAlgo}' found!"
         context = 0
 
         if self.context == "domain":
@@ -545,12 +546,12 @@ class MasterKeyFile(DataStruct):
     def decryptWithPassword(self, userSID, pwd, context):
         """See MasterKey.decryptWithPassword()"""
         algo = None
-        if context == "domain1607-" or context == "domain":
+        if context in ["domain1607-", "domain"]:
             self.decryptWithHash(userSID, hashlib.new("md4", pwd.encode('UTF-16LE')).digest())
             if self.decrypted:
                 print("Decrypted succesfully as domain1607-")
                 return
-        if context == "domain1607+" or context == "domain":
+        if context in ["domain1607+", "domain"]:
             SIDenc = userSID.encode("UTF-16LE")
             NTLMhash = hashlib.new("md4", pwd.encode('UTF-16LE')).digest()
             derived = pbkdf2(NTLMhash, SIDenc, 32, 10000, digest='sha256')
@@ -575,11 +576,11 @@ class MasterKeyFile(DataStruct):
         if self.domainkeyLen > 0:
             s.append("\tDomainKey = %d" % self.domainkeyLen)
         if self.masterkey:
-            s.append("    + Master Key: %s" % repr(self.masterkey))
+            s.append(f"    + Master Key: {repr(self.masterkey)}")
         if self.backupkey:
-            s.append("    + Backup Key: %s" % repr(self.backupkey))
+            s.append(f"    + Backup Key: {repr(self.backupkey)}")
         if self.domainkey:
-            s.append("    + %s" % repr(self.domainkey))
+            s.append(f"    + {repr(self.domainkey)}")
         return "\n".join(s)
 
 
@@ -639,8 +640,7 @@ class MasterKeyPool(object):
         if self.system is not None:
             s.append(repr(self.system))
         for i in self.creds.keys():
-            s.append("\tSID: %s" % i)
-            s.append(repr(self.creds[i]))
+            s.extend(("\tSID: %s" % i, repr(self.creds[i])))
         return "\n".join(s)
 
 if __name__ == "__main__":
@@ -662,15 +662,13 @@ if __name__ == "__main__":
         print("masterkey file, SID and context are mandatory in order to extract hash from masterkey file, exiting.")
         sys.exit(1)
     elif options.preferred:
-        Preferred = open(options.preferred,'rb')
-        display_masterkey(Preferred)
-        Preferred.close()
+        with open(options.preferred,'rb') as Preferred:
+            display_masterkey(Preferred)
         sys.exit(1)
     else:
         mkp = MasterKeyPool()
-        masterkeyfile = open(options.masterkey,'rb')
-        mkdata = masterkeyfile.read()
-        masterkeyfile.close()
+        with open(options.masterkey,'rb') as masterkeyfile:
+            mkdata = masterkeyfile.read()
         mkp.addMasterKey(mkdata, SID=options.sid, context=options.context)
         if options.password:
             print(mkp.try_credential(options.sid, options.password, options.context))

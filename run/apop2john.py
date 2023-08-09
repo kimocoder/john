@@ -38,8 +38,8 @@ for filename in filenames:
 
     for packet in capture_file:
 
-        if not TCP in packet or (packet.sport != 110 and packet.dport != 110):
-           continue
+        if TCP not in packet or (packet.sport != 110 and packet.dport != 110):
+            continue
 
         pkt = bytes(packet[TCP].payload)
 
@@ -47,13 +47,13 @@ for filename in filenames:
             src_ip = packet[IP].src
             dst_ip = packet[IP].dst
             res = re.search(b'\+OK\ .*\ (\<.+\>)', pkt)
-            apop_salt[(src_ip, dst_ip)] = res.group(1).strip()
+            apop_salt[(src_ip, dst_ip)] = res[1].strip()
         elif packet.dport == 110 and re.search(b'APOP\ .+\ (.+)', pkt):
             src_ip = packet[IP].dst
             dst_ip = packet[IP].src
             res = re.search(b'APOP\ (.+)\ (.+)', pkt)
-            apop_user[(src_ip, dst_ip)] = res.group(1).strip()
-            apop_hash[(src_ip, dst_ip)] = res.group(2).strip()
+            apop_user[(src_ip, dst_ip)] = res[1].strip()
+            apop_hash[(src_ip, dst_ip)] = res[2].strip()
 
     for ips_s, salt in apop_salt.items():
         for ips_h, ahash in apop_hash.items():

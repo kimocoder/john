@@ -82,7 +82,7 @@ def process_file(filename):
                 CheckBytes = str(CheckBytes, 'ascii')
             print("The following hash is for an SDA archive with compressed length = %d, number of files = %d, iterations = %d. Make sure that these values sound correct!\n" %
                     (CompLength, NumFiles, hashReps))
-            print("%s:$pgpsda$0*%s*%s*%s" % (os.path.basename(filename), hashReps, salt, CheckBytes))
+            print(f"{os.path.basename(filename)}:$pgpsda$0*{hashReps}*{salt}*{CheckBytes}")
 
     f.close()
 

@@ -70,10 +70,13 @@ def process_file(filename):
             return
         new_version = True
         kwallet_minor_version = buf[1]
-    if buf[2] != KWALLET_CIPHER_BLOWFISH_ECB and buf[2] != KWALLET_CIPHER_BLOWFISH_CBC:
+    if buf[2] not in [
+        KWALLET_CIPHER_BLOWFISH_ECB,
+        KWALLET_CIPHER_BLOWFISH_CBC,
+    ]:
         sys.stderr.write("%s : Unsupported cipher <%d>\n" % (filename, buf[2]))
         return
-    if buf[3] != KWALLET_HASH_SHA1 and buf[3] != KWALLET_HASH_PBKDF2_SHA512:
+    if buf[3] not in [KWALLET_HASH_SHA1, KWALLET_HASH_PBKDF2_SHA512]:
         sys.stderr.write("%s : Unsupported hash <%d>\n" % (filename, buf[3]))
         return
 
@@ -84,13 +87,13 @@ def process_file(filename):
         sys.stderr.write("%s : sanity check failed!\n" % filename)
         sys.exit(6)
     offset += 4
-    for i in range(0, n):
+    for _ in range(0, n):
         buf = fd.read(16)
         offset += 16
         buf = fd.read(4)  # read 4 bytes more
         fsz = struct.unpack("> I", buf)[0]
         offset += 4
-        for j in range(0, fsz):
+        for _ in range(0, fsz):
             fd.read(16)
             offset += 16
 
@@ -105,7 +108,7 @@ def process_file(filename):
 
     if new_version:
         # read salt
-        salt_filename = os.path.splitext(filename)[0] + ".salt"
+        salt_filename = f"{os.path.splitext(filename)[0]}.salt"
         try:
             salt = open(salt_filename).read()
         except:
@@ -117,11 +120,9 @@ def process_file(filename):
                          (os.path.basename(filename), encrypted_size,
                           hexlify(encrypted), kwallet_minor_version, salt_len,
                           salt.encode("hex"), iterations))
-        sys.stdout.write(":::::%s\n" % filename)
     else:
         sys.stdout.write("%s:$kwallet$%ld$%s" % (os.path.basename(filename), encrypted_size, hexlify(encrypted)))
-        sys.stdout.write(":::::%s\n" % filename)
-
+    sys.stdout.write(":::::%s\n" % filename)
     fd.close()
 
 

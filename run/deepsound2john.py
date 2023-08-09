@@ -54,7 +54,7 @@ def is_magic(buf):
 
 
 def is_wave(buf):
-  return buf[0:4] == b'RIFF' and buf[8:12] == b'WAVE'
+  return buf[:4] == b'RIFF' and buf[8:12] == b'WAVE'
 
 
 def process_deepsound_file(f):
@@ -109,7 +109,7 @@ def process_deepsound_file(f):
     return
 
   sha1 = hdr[6:6+20]
-  print('%s:$dynamic_1529$%s' % (bname, sha1.hex()))
+  print(f'{bname}:$dynamic_1529${sha1.hex()}')
 
 
 if __name__ == '__main__':

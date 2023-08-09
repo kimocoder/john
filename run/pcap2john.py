@@ -40,46 +40,44 @@ except ImportError:
 
 def pcap_parser_bfd(fname):
 
-    f = open(fname, "rb")
-    pcap = dpkt.pcap.Reader(f)
+    with open(fname, "rb") as f:
+        pcap = dpkt.pcap.Reader(f)
 
-    for _, buf in pcap:
-        eth = dpkt.ethernet.Ethernet(buf)
-        if eth.type == dpkt.ethernet.ETH_TYPE_IP:
-            ip = eth.data
-            if ip.v != 4:
-                continue
+        for _, buf in pcap:
+            eth = dpkt.ethernet.Ethernet(buf)
+            if eth.type == dpkt.ethernet.ETH_TYPE_IP:
+                ip = eth.data
+                if ip.v != 4:
+                    continue
 
-            if ip.p != dpkt.ip.IP_PROTO_UDP:
-                continue
+                if ip.p != dpkt.ip.IP_PROTO_UDP:
+                    continue
 
-            udp = ip.data
-            data = udp.data
+                udp = ip.data
+                data = udp.data
 
-            if udp.dport != 3784:  # bfd-control traffic
-                continue
+                if udp.dport != 3784:  # bfd-control traffic
+                    continue
 
-            message_flags = ord(data[1])
-            if not message_flags & 0x05:  # Authentication is present
-                continue
+                message_flags = ord(data[1])
+                if not message_flags & 0x05:  # Authentication is present
+                    continue
 
-            authentication_type = ord(data[24])
-            salt = data[0:32].encode("hex")
+                authentication_type = ord(data[24])
+                salt = data[:32].encode("hex")
 
-            if authentication_type == 2 or authentication_type == 3:  # Keyed MD5, Meticulous Keyed MD5
-                h = data[-16:].encode("hex")  # MD5 hash
-                # password needs to be padded to length 16 (password + ''.join(['\x00' * (16 - len(password))])),
-                # "netmd5" format automagically handles this ;)
-                print("$netmd5$%s$%s" % (salt, h))
-            elif authentication_type == 4 or authentication_type == 5:  # Keyed SHA1, Meticulous Keyed SHA1
-                # http://tools.ietf.org/html/rfc5880
-                # password needs to be padded to length 20 (password + ''.join(['\x00' * (20 - len(password))])),
-                h = data[-20:].encode("hex")  # SHA1 hash
-                print("$netsha1$%s$%s" % (salt, h))
-            else:
-                assert 0
-
-    f.close()
+                if authentication_type in {2, 3}:  # Keyed MD5, Meticulous Keyed MD5
+                    h = data[-16:].encode("hex")  # MD5 hash
+                                    # password needs to be padded to length 16 (password + ''.join(['\x00' * (16 - len(password))])),
+                                    # "netmd5" format automagically handles this ;)
+                    print(f"$netmd5${salt}${h}")
+                elif authentication_type in {4, 5}:  # Keyed SHA1, Meticulous Keyed SHA1
+                    # http://tools.ietf.org/html/rfc5880
+                    # password needs to be padded to length 20 (password + ''.join(['\x00' * (20 - len(password))])),
+                    h = data[-20:].encode("hex")  # SHA1 hash
+                    print(f"$netsha1${salt}${h}")
+                else:
+                    assert 0
 
 
 class LLC(dpkt.Packet):  # borrowed from dpkt "trunk"
@@ -89,7 +87,7 @@ class LLC(dpkt.Packet):  # borrowed from dpkt "trunk"
         if self.type == ethernet.ETH_TYPE_8021Q:
             self.tag, self.type = struct.unpack('>HH', buf[:4])
             buf = buf[4:]
-        elif self.type == ethernet.ETH_TYPE_MPLS or self.type == ethernet.ETH_TYPE_MPLS_MCAST:
+        elif self.type in [ethernet.ETH_TYPE_MPLS, ethernet.ETH_TYPE_MPLS_MCAST]:
             # XXX - skip labels
             for i in range(24):
                 if struct.unpack('>I', buf[i:i+4])[0] & 0x0100:  # MPLS_STACK_BOTTOM
@@ -113,7 +111,7 @@ class LLC(dpkt.Packet):  # borrowed from dpkt "trunk"
             dsap = ord(self.data[0])
             if dsap == 0x06:  # SAP_IP
                 self.data = self.ip = self._typesw[ethernet.ETH_TYPE_IP](self.data[3:])
-            elif dsap == 0x10 or dsap == 0xe0:  # SAP_NETWARE{1,2}
+            elif dsap in {0x10, 0xE0}:  # SAP_NETWARE{1,2}
                 self.data = self.ipx = self._typesw[ethernet.ETH_TYPE_IPX](self.data[3:])
             elif dsap == 0x42:  # SAP_STP
                 self.data = self.stp = stp.STP(self.data[3:])
@@ -121,61 +119,59 @@ class LLC(dpkt.Packet):  # borrowed from dpkt "trunk"
 
 def pcap_parser_vtp(fname):
 
-    f = open(fname, "rb")
-    pcap = dpkt.pcap.Reader(f)
+    with open(fname, "rb") as f:
+        pcap = dpkt.pcap.Reader(f)
 
-    index = 0
-    vlans_data_length = -1
+        index = 0
+        vlans_data_length = -1
 
-    revision_to_subset_mapping = {}
-    revision_to_summary_mapping = {}
+        revision_to_subset_mapping = {}
+        revision_to_summary_mapping = {}
 
-    for _, buf in pcap:
-        index = index + 1
-        eth = dpkt.ethernet.Ethernet(buf)
-        data = eth.data
-        if isinstance(data, dpkt.cdp.CDP) or isinstance(data, dpkt.stp.STP):
-            continue
+        for _, buf in pcap:
+            index = index + 1
+            eth = dpkt.ethernet.Ethernet(buf)
+            data = eth.data
+            if isinstance(data, (dpkt.cdp.CDP, dpkt.stp.STP)):
+                continue
 
-        llc = LLC(data)
-        data = llc.data
-        if isinstance(data, dpkt.cdp.CDP) or isinstance(data, dpkt.stp.STP):
-            continue
+            llc = LLC(data)
+            data = llc.data
+            if isinstance(data, (dpkt.cdp.CDP, dpkt.stp.STP)):
+                continue
 
-        if data.startswith("\x02\x02") or data.startswith("\x01\x02"):  # VTP_SUBSET_ADVERT, learn "vlans_len"
-            # VLAN Information is at offset 40
-            vlans_data = data[40:]
+            if data.startswith("\x02\x02") or data.startswith("\x01\x02"):  # VTP_SUBSET_ADVERT, learn "vlans_len"
+                # VLAN Information is at offset 40
+                vlans_data = data[40:]
+                revision = data[36:40]
+                revision_to_subset_mapping[revision] = vlans_data
+
+            # VTP v1 "Summary Advertisement" message, see "vtp_validate_md5_digest"
+            # function in cisco_IOS-11.2-8_source.tar.bz2
+            if data.startswith("\x01\x01"):
+                # hash is "towards" the end of the packet
+                h = data[56:56+16].encode("hex")
+                sys.stderr.write("[WIP] VTP packet found with MD5 hash %s!\n" % (h))
+
+            if not (data.startswith("\x02\x01") or data.startswith("\x01\x01")):  # VTP Version + Summary Advertisement
+                continue
+
             revision = data[36:40]
-            revision_to_subset_mapping[revision] = vlans_data
+            revision_to_summary_mapping[revision] = data
 
-        # VTP v1 "Summary Advertisement" message, see "vtp_validate_md5_digest"
-        # function in cisco_IOS-11.2-8_source.tar.bz2
-        if data.startswith("\x01\x01"):
-            # hash is "towards" the end of the packet
-            h = data[56:56+16].encode("hex")
-            sys.stderr.write("[WIP] VTP packet found with MD5 hash %s!\n" % (h))
+        # process the mappings
+        for revision, vlans_data in revision_to_subset_mapping.items():
+            if revision in revision_to_summary_mapping:
+                salt = revision_to_summary_mapping[revision]
 
-        if not (data.startswith("\x02\x01") or data.startswith("\x01\x01")):  # VTP Version + Summary Advertisement
-            continue
+                # hash is "towards" the end of the packet
+                h = salt[56:56+16].encode("hex")
+                vlans_data_length = len(vlans_data)
 
-        revision = data[36:40]
-        revision_to_summary_mapping[revision] = data
-
-    # process the mappings
-    for revision, vlans_data in revision_to_subset_mapping.items():
-        if revision in revision_to_summary_mapping:
-            salt = revision_to_summary_mapping[revision]
-
-            # hash is "towards" the end of the packet
-            h = salt[56:56+16].encode("hex")
-            vlans_data_length = len(vlans_data)
-
-            if vlans_data_length != -1:
-                print("%s:$vtp$%d$%s$%s$%s$%s$%s" % (index, ord(salt[0]), vlans_data_length,
-                                                                  vlans_data.encode("hex"), len(salt),
-                                                                  salt.encode("hex"), h))
-
-    f.close()
+                if vlans_data_length != -1:
+                    print("%s:$vtp$%d$%s$%s$%s$%s$%s" % (index, ord(salt[0]), vlans_data_length,
+                                                                      vlans_data.encode("hex"), len(salt),
+                                                                      salt.encode("hex"), h))
 
 
 def pcap_parser_vrrp(fname):
@@ -197,83 +193,82 @@ def pcap_parser_vrrp(fname):
                 pkt.chksum = 0
                 # salt extends from offset 0 to 20
                 salt = bytes(pkt)
-                print("%s:$hsrp$%s$%s" % (index, hexlify(salt).decode('ascii'), hexlify(h).decode('ascii')))
+                print(
+                    f"{index}:$hsrp${hexlify(salt).decode('ascii')}${hexlify(h).decode('ascii')}"
+                )
 
 
 def pcap_parser_tcpmd5(fname):
 
-    f = open(fname, "rb")
-    pcap = dpkt.pcap.Reader(f)
+    with open(fname, "rb") as f:
+        pcap = dpkt.pcap.Reader(f)
 
-    for _, buf in pcap:
-        eth = dpkt.ethernet.Ethernet(buf)
-        if eth.type == dpkt.ethernet.ETH_TYPE_IP:
-            ip = eth.data
+        for _, buf in pcap:
+            eth = dpkt.ethernet.Ethernet(buf)
+            if eth.type == dpkt.ethernet.ETH_TYPE_IP:
+                ip = eth.data
 
-            if ip.v != 4:
-                continue
-
-            if ip.p != dpkt.ip.IP_PROTO_TCP:
-                continue
-
-            tcp = ip.data
-
-            # this packet doesn't have MD5 signature (too small)
-            if tcp.off * 4 < 40:
-                continue
-
-            raw_ip_data = ip.pack()
-            raw_tcp_data = tcp.pack()
-            length = len(raw_tcp_data)
-
-            # connection_id = (ip.src, tcp.sport, ip.dst, tcp.dport)
-
-            if len(tcp.opts) < 18:  # MD5 signature "option" is 18 bytes long
-                continue
-
-            found = False
-
-            for opt_type, opt_data in dpkt.tcp.parse_opts(tcp.opts):
-                # skip over "undesired" option fields
-                # TCP_OPT_MD5 = 19 implies TCP MD5 signature, RFC 2385
-                if opt_type != 19:
+                if ip.v != 4:
                     continue
 
-                found = True
-                break
+                if ip.p != dpkt.ip.IP_PROTO_TCP:
+                    continue
 
-            if not found:
-                continue
+                tcp = ip.data
 
-            # MD5 signature "option" is 16 bytes long
-            if len(opt_data) != 16:
-                continue
+                            # this packet doesn't have MD5 signature (too small)
+                if tcp.off < 10:
+                    continue
 
-            # TCP_OPT_MD5 = 19 implies TCP MD5 signature, RFC 2385
-            if opt_type == 19:
-                header_length = tcp.off * 4
-                data_length = length - header_length
-                # print length, header_length, data_length
+                raw_ip_data = ip.pack()
+                raw_tcp_data = tcp.pack()
+                length = len(raw_tcp_data)
 
-                # TCP pseudo-header + TCP header + TCP segment data
-                # salt_length = 12 + 20 + data_length
-                # add TCP pseudo-header
-                salt = raw_ip_data[12:12 + 8]  # src. and dest. IP
-                salt = salt + "\x00"  # zero padding
-                salt = salt + raw_ip_data[9]  # protocol
-                salt = salt + "%c" % (length / 256)  # segment length
-                salt = salt + "%c" % (length % 256)  # segment length
-                # add TCP header
-                salt = salt + raw_tcp_data[:16]  # TCP header without checksum
-                salt = salt + ("\x00" * 4)  # add zero checksum
-                # add segment data
-                salt = salt + raw_tcp_data[header_length:header_length + data_length]
-                # print len(salt)
+                # connection_id = (ip.src, tcp.sport, ip.dst, tcp.dport)
 
-                print("$tcpmd5$%s$%s" % (salt.encode("hex"),
-                                                      opt_data.encode("hex")))
+                if len(tcp.opts) < 18:  # MD5 signature "option" is 18 bytes long
+                    continue
 
-    f.close()
+                found = False
+
+                for opt_type, opt_data in dpkt.tcp.parse_opts(tcp.opts):
+                    # skip over "undesired" option fields
+                    # TCP_OPT_MD5 = 19 implies TCP MD5 signature, RFC 2385
+                    if opt_type != 19:
+                        continue
+
+                    found = True
+                    break
+
+                if not found:
+                    continue
+
+                # MD5 signature "option" is 16 bytes long
+                if len(opt_data) != 16:
+                    continue
+
+                            # TCP_OPT_MD5 = 19 implies TCP MD5 signature, RFC 2385
+                if opt_type == 19:
+                    header_length = tcp.off * 4
+                    data_length = length - header_length
+                    # print length, header_length, data_length
+
+                    # TCP pseudo-header + TCP header + TCP segment data
+                    # salt_length = 12 + 20 + data_length
+                    # add TCP pseudo-header
+                    salt = raw_ip_data[12:12 + 8]  # src. and dest. IP
+                    salt = salt + "\x00"  # zero padding
+                    salt = salt + raw_ip_data[9]  # protocol
+                    salt = salt + "%c" % (length / 256)  # segment length
+                    salt = salt + "%c" % (length % 256)  # segment length
+                    # add TCP header
+                    salt = salt + raw_tcp_data[:16]  # TCP header without checksum
+                    salt = salt + ("\x00" * 4)  # add zero checksum
+                    # add segment data
+                    salt = salt + raw_tcp_data[header_length:header_length + data_length]
+                                    # print len(salt)
+
+                    print(f'$tcpmd5${salt.encode("hex")}${opt_data.encode("hex")}')
 
 
 def pcap_parser_s7(cfg_pcap_file):
@@ -296,11 +291,17 @@ def pcap_parser_s7(cfg_pcap_file):
         try:
             payload = packet.load.encode('hex')
             # if payload[14:26]=='720200453200' and payload[46:52]=='100214' and abs(packet.len+14 - 138)<=1:
-            if payload[14:20] == '720200' and payload[46:52] == '100214' and abs(packet.len+14 - 138) <= 1:
-                challenge = payload[52:92]
-            # elif payload[14:26]=='720200663100' and payload[64:70]=='100214'  and abs(packet.len+14 - 171)<=1:
-            elif payload[14:20] == '720200' and payload[64:70] == '100214' and abs(packet.len+14 - 171) <= 1:
-                response = payload[70:110]
+            if payload[14:20] == '720200':
+                if (
+                    payload[46:52] == '100214'
+                    and abs(packet.len + 14 - 138) <= 1
+                ):
+                    challenge = payload[52:92]
+                elif (
+                    payload[64:70] == '100214'
+                    and abs(packet.len + 14 - 171) <= 1
+                ):
+                    response = payload[70:110]
 
             if challenge and response:
                 result[challenge] = response
@@ -312,8 +313,7 @@ def pcap_parser_s7(cfg_pcap_file):
     outcome = 0  # XXX we don't know this currently!
     for c, r in result.items():
         found_something = True  # overkill ;(
-        print("%s:$siemens-s7$%s$%s$%s" % (os.path.basename(cfg_pcap_file),
-                                                        outcome, c, r))
+        print(f"{os.path.basename(cfg_pcap_file)}:$siemens-s7${outcome}${c}${r}")
 
     # s7-1200_brute_offline.py stuff below
     # try to find challenge packet
@@ -322,20 +322,24 @@ def pcap_parser_s7(cfg_pcap_file):
     lens = map(lambda x: x.len, r)
     pckt_lens = dict([(i, lens[i]) for i in range(0, len(lens))])
 
-    pckt_108 = None  # challenge packet (from server)
-    for (pckt_indx, pckt_len) in pckt_lens.items():
-        if (pckt_len + 14 == 108 and
-                hexlify(r[pckt_indx].load)[14:24] == '7202002732'):
-            pckt_108 = pckt_indx
-            break
-
+    pckt_108 = next(
+        (
+            pckt_indx
+            for pckt_indx, pckt_len in pckt_lens.items()
+            if pckt_len == 94
+            and hexlify(r[pckt_indx].load)[14:24] == '7202002732'
+        ),
+        None,
+    )
     # try to find response packet
     pckt_141 = 0  # response packet (from client)
     _t1 = dict([(i, lens[i]) for i in pckt_lens.keys()[pckt_108:]])
     for pckt_indx in sorted(_t1.keys()):
         pckt_len = _t1[pckt_indx]
-        if (pckt_len + 14 == 141 and
-                hexlify(r[pckt_indx].load)[14:24] == '7202004831'):
+        if (
+            pckt_len == 127
+            and hexlify(r[pckt_indx].load)[14:24] == '7202004831'
+        ):
             pckt_141 = pckt_indx
             break
 
@@ -344,13 +348,17 @@ def pcap_parser_s7(cfg_pcap_file):
     pckt_92 = 0  # auth answer from plc: pckt_len==92 -> auth bad
     for pckt_indx in sorted(_t1.keys()):
         pckt_len = _t1[pckt_indx]
-        if (pckt_len + 14 == 84 and
-                hexlify(r[pckt_indx].load)[14:24] == '7202000f32'):
+        if (
+            pckt_len == 70
+            and hexlify(r[pckt_indx].load)[14:24] == '7202000f32'
+        ):
             pckt_84 = pckt_indx
             assert(pckt_84)
             break
-        if (pckt_len + 14 == 92 and
-                hexlify(r[pckt_indx].load)[14:24] == '7202001732'):
+        if (
+            pckt_len == 78
+            and hexlify(r[pckt_indx].load)[14:24] == '7202001732'
+        ):
             pckt_92 = pckt_indx
             assert(pckt_92)
             break
@@ -390,58 +398,53 @@ def pcap_parser_s7(cfg_pcap_file):
                          % os.path.basename(cfg_pcap_file))
         return
 
-    if pckt_84:
-        outcome = 1
-    else:
-        outcome = 0
-    print("%s:$siemens-s7$%s$%s$%s" % (os.path.basename(cfg_pcap_file),
-                                                    outcome, challenge, response))
+    outcome = 1 if pckt_84 else 0
+    print(
+        f"{os.path.basename(cfg_pcap_file)}:$siemens-s7${outcome}${challenge}${response}"
+    )
 
 
 def pcap_parser_rsvp(fname):
 
-    f = open(fname, "rb")
-    pcap = dpkt.pcap.Reader(f)
-    index = 0
+    with open(fname, "rb") as f:
+        pcap = dpkt.pcap.Reader(f)
+        index = 0
 
-    for _, buf in pcap:
-        index = index + 1
-        eth = dpkt.ethernet.Ethernet(buf)
-        if eth.type == dpkt.ethernet.ETH_TYPE_IP or eth.type == dpkt.ethernet.ETH_TYPE_IP6:
-            ip = eth.data
+        for _, buf in pcap:
+            index = index + 1
+            eth = dpkt.ethernet.Ethernet(buf)
+            if eth.type in [
+                dpkt.ethernet.ETH_TYPE_IP,
+                dpkt.ethernet.ETH_TYPE_IP6,
+            ]:
+                ip = eth.data
 
-            if eth.type == dpkt.ethernet.ETH_TYPE_IP and ip.p != dpkt.ip.IP_PROTO_RSVP:
-                continue
-            if eth.type == dpkt.ethernet.ETH_TYPE_IP6 and ip.nxt != dpkt.ip.IP_PROTO_RSVP:
-                continue
+                if eth.type == dpkt.ethernet.ETH_TYPE_IP and ip.p != dpkt.ip.IP_PROTO_RSVP:
+                    continue
+                if eth.type == dpkt.ethernet.ETH_TYPE_IP6 and ip.nxt != dpkt.ip.IP_PROTO_RSVP:
+                    continue
 
-            data = ip.data  # RSVP object
+                data = ip.data  # RSVP object
 
-            # RSVP header is 8 bytes, skip over it
-            offset = 8
+                # RSVP header is 8 bytes, skip over it
+                offset = 8
 
-            # does the INTEGRITY object always follows the RSVP Header?
-            length = struct.unpack(">H", data[offset:offset+2])[0]
+                # does the INTEGRITY object always follows the RSVP Header?
+                length = struct.unpack(">H", data[offset:offset+2])[0]
 
-            # "Object class" is at offset 3 within the "INTEGRITY" object
-            object_class = ord(data[offset + 2])
+                # "Object class" is at offset 3 within the "INTEGRITY" object
+                object_class = ord(data[offset + 2])
 
-            if object_class != 4:
-                continue
+                if object_class != 4:
+                    continue
 
-            # hash is at offset 20 within the "INTEGRITY" object
-            hash_length = length - 20
-            h = data[offset+20:][:hash_length]
-            if hash_length == 16:
-                algo_type = 1
-            else:
-                algo_type = 2
-
-            # zero-out the hash during hash calculation
-            salt = data.replace(h, "\x00" * len(h))
-            print("%s:$rsvp$%d$%s$%s" % (index, algo_type, salt.encode("hex"), h.encode("hex")))
-
-    f.close()
+                # hash is at offset 20 within the "INTEGRITY" object
+                hash_length = length - 20
+                h = data[offset+20:][:hash_length]
+                algo_type = 1 if hash_length == 16 else 2
+                # zero-out the hash during hash calculation
+                salt = data.replace(h, "\x00" * len(h))
+                print("%s:$rsvp$%d$%s$%s" % (index, algo_type, salt.encode("hex"), h.encode("hex")))
 
 
 def pcap_parser_ntp(fname):

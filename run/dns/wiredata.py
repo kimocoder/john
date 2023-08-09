@@ -98,4 +98,4 @@ def maybe_wrap(wire):
         return WireData(wire)
     elif isinstance(wire, string_types):
         return WireData(wire.encode())
-    raise ValueError("unhandled type %s" % type(wire))
+    raise ValueError(f"unhandled type {type(wire)}")

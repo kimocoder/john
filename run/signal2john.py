@@ -137,16 +137,15 @@ class _DictSAXHandler(object):
         if i == -1:
             return full_name
         namespace, name = full_name[:i], full_name[i+1:]
-        short_namespace = self.namespaces.get(namespace, namespace)
-        if not short_namespace:
-            return name
-        else:
+        if short_namespace := self.namespaces.get(namespace, namespace):
             return self.namespace_separator.join((short_namespace, name))
+        else:
+            return name
 
     def _attrs_to_dict(self, attrs):
         if isinstance(attrs, dict):
             return attrs
-        return self.dict_constructor(zip(attrs[0::2], attrs[1::2]))
+        return self.dict_constructor(zip(attrs[::2], attrs[1::2]))
 
     def startNamespaceDecl(self, prefix, uri):
         self.namespace_declarations[prefix or ''] = uri
@@ -228,10 +227,7 @@ class _DictSAXHandler(object):
             else:
                 item[key] = [value, data]
         except KeyError:
-            if self._should_force_list(key, data):
-                item[key] = [data]
-            else:
-                item[key] = data
+            item[key] = [data] if self._should_force_list(key, data) else data
         return item
 
     def _should_force_list(self, key, value):
@@ -419,9 +415,9 @@ def _emit(key, value, content_handler,
         if result is None:
             return
         key, value = result
-    if (not hasattr(value, '__iter__')
-            or isinstance(value, _basestring)
-            or isinstance(value, dict)):
+    if not hasattr(value, '__iter__') or isinstance(
+        value, (_basestring, dict)
+    ):
         value = [value]
     for index, v in enumerate(value):
         if full_document and depth == 0 and index > 0:
@@ -540,7 +536,9 @@ def extract_hashes_from_xml(xml, fname):
         mac_salt = mac_salt.decode("ascii")
         master_secret = master_secret.decode("ascii")
     # print(encryption_salt, mac_salt, master_secret, iterations)
-    print("%s:$signal$%s$%s$%s$%s$%s$%s" % (os.path.basename(fname), 1, iterations, encryption_salt, mac_salt, master_secret, master_secret[-40:]))
+    print(
+        f"{os.path.basename(fname)}:$signal$1${iterations}${encryption_salt}${mac_salt}${master_secret}${master_secret[-40:]}"
+    )
 
 
 def process_file(fname):

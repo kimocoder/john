@@ -9,7 +9,7 @@ import re
 
 def process_file(filename):
     with open(filename, "r") as f:
-        for line in f.readlines():
+        for line in f:
             line = re.sub(r'sip\:\*', r'sip:0.0.0.0', line)
             line = line.rstrip().replace('"', '*').replace(':', '*')
             data = line.split('*')

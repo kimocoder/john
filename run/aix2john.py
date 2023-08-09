@@ -32,7 +32,7 @@ def process_file(filename, is_standard):
 
     username = "?"
 
-    for line in fd.readlines():
+    for line in fd:
         if re.match('^\s*\S+\s*:\s*$',line):
             username = line.split(':')[0]
 

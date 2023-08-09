@@ -49,11 +49,10 @@ class ParseError(Exception):
 
 
 def readint(text):
-    if "#" in text:
-        (a, b) = text.split("#", 2)
-        return int(b, int(a))
-    else:
+    if "#" not in text:
         return int(text)
+    (a, b) = text.split("#", 2)
+    return int(b, int(a))
 
 
 def transform(ast):
@@ -112,32 +111,28 @@ def chunks(iterable):  # this is hacky but it seems to work!
             yield buf
             buf = []
         elif b"passwd" in line:
-            buf = []
-            buf.append(line)
+            buf = [line]
         else:
             buf.append(line)
 
 
 def process_file(name):
-    f = open(name, "rb")
+    with open(name, "rb") as f:
+        for chunk in chunks(f):
+            # process chunk
+            chunk = b"".join(chunk).decode("utf-8")
+            chunk = chunk.replace(" ", "").replace("\n", "")
+            data = decode(chunk)
+            try:
+                _, who, scram = data[0]
+                user = "@".join(who)
+                _, stored_key, server_key, salt, iterations = scram
+                salt = hexlify(b64decode(salt)).decode("ascii")
+                stored_key = hexlify(b64decode(stored_key)).decode("ascii")
+                sys.stdout.write("%s:$xmpp-scram$0$%s$%s$%s$%s\n" % (user, iterations, len(salt) // 2, salt, stored_key))
 
-    for chunk in chunks(f):
-        # process chunk
-        chunk = b"".join(chunk).decode("utf-8")
-        chunk = chunk.replace(" ", "").replace("\n", "")
-        data = decode(chunk)
-        try:
-            _, who, scram = data[0]
-            user = "@".join(who)
-            _, stored_key, server_key, salt, iterations = scram
-            salt = hexlify(b64decode(salt)).decode("ascii")
-            stored_key = hexlify(b64decode(stored_key)).decode("ascii")
-            sys.stdout.write("%s:$xmpp-scram$0$%s$%s$%s$%s\n" % (user, iterations, len(salt) // 2, salt, stored_key))
-
-        except:
-            sys.stderr.write("Bad line? %s\n" % chunk)
-
-    f.close()
+            except:
+                sys.stderr.write("Bad line? %s\n" % chunk)
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

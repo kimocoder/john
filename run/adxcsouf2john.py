@@ -46,10 +46,7 @@ def entropy(string):
         # get probability of chars in string
         prob = [ float(string.count(c)) / len(string) for c in dict.fromkeys(list(string)) ]
 
-        # calculate the entropy
-        entropy = - sum([ p * math.log(p) / math.log(2.0) for p in prob ])
-
-        return entropy
+        return -sum(p * math.log(p) / math.log(2.0) for p in prob)
 
 
 def process_other_file(filename):
@@ -80,35 +77,35 @@ def process_other_file(filename):
 
 
 def process_file(filename):
-    """
+        """
     Parser for ADXCSOUF.DAT files. Based on some trial-and-error.
     """
-    data = open(filename, "rb").read()
+        data = open(filename, "rb").read()
 
-    # lousy heuristics to detect ADXEPW0F.DAT file
-    count = 0
-    length = 2048 if len(data) > 2048 else len(data)
-    for i in range(0, length):
-        if data[i] == 0x20 or data[i] == 0x00:
-            count = count + 1
-    if count > 128:
-        return process_other_file(filename)
+        # lousy heuristics to detect ADXEPW0F.DAT file
+        count = 0
+        length = min(len(data), 2048)
+        for i in range(0, length):
+                if data[i] in [0x20, 0x00]:
+                        count = count + 1
+        if count > 128:
+            return process_other_file(filename)
 
-    # find (username hash) pairs
-    matches = re.findall(b'([a-zA-Z0-9_-]{3,9})\ (\d{8})', data)
+        # find (username hash) pairs
+        matches = re.findall(b'([a-zA-Z0-9_-]{3,9})\ (\d{8})', data)
 
-    for items in matches:
-        try:
-            username = items[0]
-            h = items[1]
-        except:
-            pass
+        for items in matches:
+            try:
+                username = items[0]
+                h = items[1]
+            except:
+                pass
 
-        if PY3:
-            username = username.decode("ascii")
-            h = h.decode("ascii")
+            if PY3:
+                username = username.decode("ascii")
+                h = h.decode("ascii")
 
-        sys.stdout.write("%s:$adxcrypt$%s\n" % (username, h))
+            sys.stdout.write("%s:$adxcrypt$%s\n" % (username, h))
 
 
 if __name__ == "__main__":

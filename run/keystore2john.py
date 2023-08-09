@@ -93,14 +93,14 @@ def process_file(filename):
     buf = fd.read(4)
     xVersion = struct.unpack("> I", buf)[0]
 
-    if (xMagic != MAGIC or (xVersion != VERSION_1 and xVersion != VERSION_2)):
+    if xMagic != MAGIC or xVersion not in [VERSION_1, VERSION_2]:
         sys.stderr.write("Invalid keystore format\n")
         return
 
     buf = fd.read(4)
     count = struct.unpack("> I", buf)[0]
 
-    for i in range(0, count):
+    for _ in range(0, count):
         buf = fd.read(4)
         tag = struct.unpack("> I", buf)[0]
 
@@ -124,11 +124,11 @@ def process_file(filename):
             buf = fd.read(4)
             numOfCerts = struct.unpack("> I", buf)[0]
             if (numOfCerts > 0):
-                for j in range(0, numOfCerts):
+                for _ in range(0, numOfCerts):
                     if xVersion == 2:
                         # read the certificate type
                         p = ord(fd.read(1))
-                        assert(p == 1 or p == 0)
+                        assert p in {1, 0}
                         length = ord(fd.read(1))
                         buf = fd.read(length)
 
@@ -138,7 +138,7 @@ def process_file(filename):
                     certdata = fd.read(certsize)
                     assert(len(certdata) == certsize)
 
-            # We can be sure now that numOfCerts of certs are read
+                    # We can be sure now that numOfCerts of certs are read
         elif (tag == 2):  # trusted certificate entry
             # Read the alias
             p = fd.read(1)
@@ -170,10 +170,18 @@ def process_file(filename):
     md = fd.read(20)
     assert(len(md) == 20)
 
-    sys.stdout.write("%s:$keystore$0$%d$%s" % (os.path.basename(filename), pos,
-                                               hexlify(data[0:pos]).decode('utf-8')))
+    sys.stdout.write(
+        (
+            "%s:$keystore$0$%d$%s"
+            % (
+                os.path.basename(filename),
+                pos,
+                hexlify(data[:pos]).decode('utf-8'),
+            )
+        )
+    )
 
-    sys.stdout.write("$%s" % hexlify(md).decode('utf-8'))
+    sys.stdout.write(f"${hexlify(md).decode('utf-8')}")
     sys.stdout.write("$%d$%d$%s" % (count, keysize, hexlify(protectedPrivKey).decode('utf-8')))
     sys.stdout.write(":::::%s\n" % filename)
 

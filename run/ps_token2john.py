@@ -44,7 +44,7 @@ user = data[loc:loc + int(hexstr(user_length), 16)].replace(b"\x00", b"").decode
 
 # python generate.py -e 0 -u PS -l ENG -p "" -n PSFT_HR -d 2015-07-01-08.06.46
 if data_hash == sha_mac:
-    print("%s: there is no password for the attacking node!" % user)
+    print(f"{user}: there is no password for the attacking node!")
 else:
     # print hash
     sys.stdout.write("%s:$dynamic_1600$%s$HEX$%s\n" % (user, sha_mac, hexstr(data)))

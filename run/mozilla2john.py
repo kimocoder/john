@@ -35,32 +35,36 @@ def process_file(filename):
         fail(filename)
         return
     # global_salt is at offset = idx -20
-    if idx - 20 < 0:
+    if idx < 20:
         fail(filename)
         return
-    global_salt = data[idx-20:][0:20]  # is the salt always 20 bytes?
+    global_salt = data[idx-20:][:20]
 
     idx = data.find("password-check")
     if idx < 0:
         fail(filename)
         return
     # password_check is at offset = idx - 52  # does this always hold?
-    if idx - 52 < 0:
+    if idx < 52:
         fail(filename)
         return
-    password_check = data[idx-52:][0:52]
-    entry_salt = password_check[3:][0:20]
-    verifier = password_check[52-16:][0:16]
+    password_check = data[idx-52:][:52]
+    entry_salt = password_check[3:][:20]
+    verifier = password_check[52-16:][:16]
 
     version = 3  # fake (this should be improved)
     nnLen = 1  # fake
     oidLen = 11  # fake
     oidData = "\x00" * oidLen  # fake
-    sys.stdout.write("%s:$mozilla$*%s*%s*%s*" % (os.path.basename(filename), version, len(entry_salt), nnLen))
+    sys.stdout.write(
+        f"{os.path.basename(filename)}:$mozilla$*{version}*{len(entry_salt)}*{nnLen}*"
+    )
     sys.stdout.write(hexlify(entry_salt).decode("ascii"))
-    sys.stdout.write("*%s*%s*%s*" % (oidLen, hexlify(oidData).decode("ascii"), len(verifier)))
+    sys.stdout.write(
+        f'*{oidLen}*{hexlify(oidData).decode("ascii")}*{len(verifier)}*'
+    )
     sys.stdout.write(hexlify(verifier).decode("ascii"))
-    sys.stdout.write("*%s*" % len(global_salt))
+    sys.stdout.write(f"*{len(global_salt)}*")
     sys.stdout.write(hexlify(global_salt).decode("ascii"))
     sys.stdout.write("\n")
 

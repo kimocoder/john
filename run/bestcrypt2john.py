@@ -118,8 +118,8 @@ kKGID = 4  # Keygen id
 kKGID_V5 = 5  # Keygen id for BestCrypt version 5
 
 db_header_fmt = '< 3s 8s 4s 28s 11s H H I 42s 24s I I I 512s'
-db_enc_block64_fmt = "%s 4s 64s 16s" % db_header_fmt
-DATA_BLOCK_64_fmt = "%s 288s 512s 2560s" % db_enc_block64_fmt  # hardcoded 2560s supports 10 KEY_BLOCK(s) while maximum is 64 (kBCV8_MaxKeys)
+db_enc_block64_fmt = f"{db_header_fmt} 4s 64s 16s"
+DATA_BLOCK_64_fmt = f"{db_enc_block64_fmt} 288s 512s 2560s"
 DATA_BLOCK_64_size = struct.calcsize(DATA_BLOCK_64_fmt)
 db_enc_block64_size = struct.calcsize(db_enc_block64_fmt)
 keymap_fmt = "< H h I"
@@ -170,10 +170,7 @@ def DataBlock_CapacityForSize(dbsize):
 
     capacity = ((dbsize - DATA_BLOCK_size) // kKeySlotSize)
 
-    if capacity < kBCV8_MaxKeys:
-        return capacity
-    else:
-        return kBCV8_MaxKeys
+    return min(capacity, kBCV8_MaxKeys)
 
 
 def process_file(filename):
@@ -200,7 +197,9 @@ def process_file(filename):
     # libs/multi-lib/keygens/kgghost/datablock.cpp -> DataBlock_DecodeKey
     # libs/multi-lib/keygens/kgghost/datablock.cpp -> walkNotEncrypted
     if signature != DB_HEADER_SIGNATURE or volumeLabel != b"BC_KeyGenID":
-        print("%s: encrypted header found, not yet supported, patches welcome!" % os.path.basename(filename))
+        print(
+            f"{os.path.basename(filename)}: encrypted header found, not yet supported, patches welcome!"
+        )
         # look at libs/multi-lib/keygens/kgghost/datablock.cpp -> DataBlock_DecodeKey
         return
 
@@ -211,32 +210,35 @@ def process_file(filename):
     else:
         resolved_version = iterations  # union of iterations and version
         if (resolved_version != 3) or wKeyGenId != kKGID:
-            print("Invalid header version %s, id %s" % (resolved_version, wKeyGenId))
+            print(f"Invalid header version {resolved_version}, id {wKeyGenId}")
             return
 
     if alg_id != bcsaRIJN:
-        print("%s: cipher alg_id %s not supported, patches welcome!" % (os.path.basename(filename), alg_id))
+        print(
+            f"{os.path.basename(filename)}: cipher alg_id {alg_id} not supported, patches welcome!"
+        )
         return
 
-    if mode_id != kBCMode_CBC and mode_id != kBCMode_XTS:
-        print("%s: cipher mode_id %s not supported, patches welcome!" % (os.path.basename(filename), hex(mode_id)))
+    if mode_id not in [kBCMode_CBC, kBCMode_XTS]:
+        print(
+            f"{os.path.basename(filename)}: cipher mode_id {hex(mode_id)} not supported, patches welcome!"
+        )
         return
 
     # handle hash_id and salt
-    if hash_id != bchaWhirlpool512 and hash_id != bchaSHA256 and hash_id != pgphaSHA512:
-        print("%s: hash_id %s not supported, patches welcome!" % (os.path.basename(filename), hash_id))
+    if hash_id not in [bchaWhirlpool512, bchaSHA256, pgphaSHA512]:
+        print(
+            f"{os.path.basename(filename)}: hash_id {hash_id} not supported, patches welcome!"
+        )
         return 0
     salt_size = -1
-    if hash_id == bchaWhirlpool512:
-        salt_size = 64
-    elif hash_id == bchaSHA256:
-        salt_size = 32
-    elif hash_id == pgphaSHA512:
-        salt_size = 64
-    salt = hexlify(keys[0:salt_size]).decode("ascii")  # this uses data from keys corresponding to slotnum = 0
+    salt_size = 64 if hash_id == bchaWhirlpool512 or hash_id != bchaSHA256 else 32
+    salt = hexlify(keys[:salt_size]).decode("ascii")
     size, _type, param = struct.unpack(keymap_fmt, keymap[:keymap_size])  # this uses data from keymap with slotnum = 0
     if _type != kBCKeyType_Salt:
-        print("%s: internal error while processing salt, please report this problem!" % os.path.basename(filename))
+        print(
+            f"{os.path.basename(filename)}: internal error while processing salt, please report this problem!"
+        )
         return
 
     dbsize = kBCV8_InitialDataBlockSize
@@ -249,7 +251,7 @@ def process_file(filename):
     for slotnum in range(0, maxSlots):
         slot = keymap[slot_size * slotnum:slot_size * (slotnum + 1)]
         size, slot_type, _ = struct.unpack(keymap_fmt, slot)
-        if slot_type == kBCKeyType_Part or slot_type == kBCKeyType_Salt or slot_type == kBCKeyType_Empty:
+        if slot_type in [kBCKeyType_Part, kBCKeyType_Salt, kBCKeyType_Empty]:
             continue
         # find the corresponding bits in "keys", keys[slotnum]
         active_key = keys[kKeySlotSize * slotnum:kKeySlotSize * (slotnum + 1)]

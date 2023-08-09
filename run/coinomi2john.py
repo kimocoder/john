@@ -45,7 +45,9 @@ def process_file(filename):
     if pb_wallet.encryption_type == Wallet.UNENCRYPTED:
         raise ValueError("Coinomi wallet is not encrypted")
     if pb_wallet.encryption_type != Wallet.ENCRYPTED_SCRYPT_AES:
-        raise NotImplementedError("Unsupported Coinomi wallet encryption type " + str(pb_wallet.encryption_type))
+        raise NotImplementedError(
+            f"Unsupported Coinomi wallet encryption type {str(pb_wallet.encryption_type)}"
+        )
     if not pb_wallet.HasField("encryption_parameters"):
         raise ValueError("Coinomi wallet is missing its scrypt encryption parameters")
 

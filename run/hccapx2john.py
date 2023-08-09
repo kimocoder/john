@@ -36,11 +36,7 @@ def pack_jtr(hccap, message_pair, hccapxfile, ncorr=0):
     (essid, mac_ap, mac_sta, corr, keyver) = struct.unpack(hccap_fmt, hccap)
 
     # replay count checked
-    if message_pair & 0x80 > 1:
-        ver = b'verified'
-    else:
-        ver = b'not verified'
-
+    ver = b'verified' if message_pair & 0x80 > 1 else b'not verified'
     # detect endian and apply nonce correction
     if ncorr != 0:
         try:
@@ -192,9 +188,9 @@ def check_hccapx(arg):
     '''check if it's a valid hccapx file'''
 
     if not os.path.isfile(arg):
-        raise argparse.ArgumentTypeError('The file %s does not exist!' % arg)
+        raise argparse.ArgumentTypeError(f'The file {arg} does not exist!')
     if os.path.getsize(arg) % 393 != 0:
-        raise argparse.ArgumentTypeError('The file %s size not valid!' % arg)
+        raise argparse.ArgumentTypeError(f'The file {arg} size not valid!')
 
     return arg
 
@@ -238,10 +234,7 @@ if __name__ == "__main__":
             if not hccapxstruct:
                 break
 
-            john = hccapx2john(
-                hccapxstruct,
-                args.nc,
-                args.mp,
-                args.hccapx.encode())
-            if john:
+            if john := hccapx2john(
+                hccapxstruct, args.nc, args.mp, args.hccapx.encode()
+            ):
                 sys.stdout.write(john.decode('utf-8', errors='ignore'))

@@ -82,10 +82,7 @@ class Message(object):
     """A DNS message."""
 
     def __init__(self, id=None):
-        if id is None:
-            self.id = -1  # dns.entropy.random_16() XXX
-        else:
-            self.id = id
+        self.id = -1 if id is None else id
         self.flags = 0
         self.question = []
         self.answer = []
@@ -114,7 +111,7 @@ class Message(object):
         self.index = {}
 
     def __repr__(self):
-        return '<DNS message, ID ' + repr(self.id) + '>'
+        return f'<DNS message, ID {repr(self.id)}>'
 
     def __str__(self):
         return self.to_text()
@@ -145,8 +142,7 @@ class Message(object):
             s.write(u'payload %d\n' % self.payload)
         for opt in self.options:
             s.write(u'option %s\n' % opt.to_text())
-        is_update = dns.opcode.is_update(self.flags)
-        if is_update:
+        if is_update := dns.opcode.is_update(self.flags):
             s.write(u';ZONE\n')
         else:
             s.write(u';QUESTION\n')
@@ -208,10 +204,7 @@ class Message(object):
         for n in self.authority:
             if n not in other.authority:
                 return False
-        for n in other.authority:
-            if n not in self.authority:
-                return False
-        return True
+        return all(n in self.authority for n in other.authority)
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -223,22 +216,19 @@ class Message(object):
         """
 
         if other.flags & dns.flags.QR == 0 or \
-           self.id != other.id or \
-           dns.opcode.from_flags(self.flags) != \
-           dns.opcode.from_flags(other.flags):
+               self.id != other.id or \
+               dns.opcode.from_flags(self.flags) != \
+               dns.opcode.from_flags(other.flags):
             return False
         if dns.rcode.from_flags(other.flags, other.ednsflags) != \
-                dns.rcode.NOERROR:
+                    dns.rcode.NOERROR:
             return True
         if dns.opcode.is_update(self.flags):
             return True
         for n in self.question:
             if n not in other.question:
                 return False
-        for n in other.question:
-            if n not in self.question:
-                return False
-        return True
+        return all(n in self.question for n in other.question)
 
     def section_number(self, section):
         """Return the "section number" of the specified section for use
@@ -432,10 +422,7 @@ class Message(object):
             self.keyname = keyname
         self.keyalgorithm = algorithm
         self.fudge = fudge
-        if original_id is None:
-            self.original_id = self.id
-        else:
-            self.original_id = original_id
+        self.original_id = self.id if original_id is None else original_id
         self.tsig_error = tsig_error
         self.other_data = other_data
 
@@ -573,13 +560,13 @@ class _WireReader(object):
         if self.updating and qcount > 1:
             raise dns.exception.FormError
 
-        for i in xrange(0, qcount):
+        for _ in xrange(0, qcount):
             (qname, used) = dns.name.from_wire(self.wire, self.current)
             if self.message.origin is not None:
                 qname = qname.relativize(self.message.origin)
             self.current = self.current + used
             (rdtype, rdclass) = \
-                struct.unpack('!HH',
+                    struct.unpack('!HH',
                               self.wire[self.current:self.current + 4])
             self.current = self.current + 4
             self.message.find_rrset(self.message.question, qname,
@@ -596,10 +583,7 @@ class _WireReader(object):
         count: the number of records to read
         """
 
-        if self.updating or self.one_rr_per_rrset:
-            force_unique = True
-        else:
-            force_unique = False
+        force_unique = bool(self.updating or self.one_rr_per_rrset)
         seen_opt = False
         for i in xrange(0, count):
             rr_start = self.current
@@ -609,7 +593,7 @@ class _WireReader(object):
                 name = name.relativize(self.message.origin)
             self.current = self.current + used
             (rdtype, rdclass, ttl, rdlen) = \
-                struct.unpack('!HHIH',
+                    struct.unpack('!HHIH',
                               self.wire[self.current:self.current + 10])
             self.current = self.current + 10
             if rdtype == dns.rdatatype.OPT:
@@ -623,7 +607,7 @@ class _WireReader(object):
                 optslen = rdlen
                 while optslen > 0:
                     (otype, olen) = \
-                        struct.unpack('!HH',
+                            struct.unpack('!HH',
                                       self.wire[current:current + 4])
                     current = current + 4
                     opt = dns.edns.option_from_wire(
@@ -633,20 +617,19 @@ class _WireReader(object):
                     optslen = optslen - 4 - olen
                 seen_opt = True
             elif rdtype == dns.rdatatype.TSIG:
-                if not (section is self.message.additional and
-                        i == (count - 1)):
+                if section is not self.message.additional or i != count - 1:
                     raise BadTSIG
                 if self.message.keyring is None:
                     raise UnknownTSIGKey('got signed message without keyring')
                 secret = self.message.keyring.get(absolute_name)
                 if secret is None:
-                    raise UnknownTSIGKey("key '%s' unknown" % name)
+                    raise UnknownTSIGKey(f"key '{name}' unknown")
                 self.message.keyname = absolute_name
                 (self.message.keyalgorithm, self.message.mac) = \
-                    dns.tsig.get_algorithm_and_mac(self.wire, self.current,
+                        dns.tsig.get_algorithm_and_mac(self.wire, self.current,
                                                    rdlen)
                 self.message.tsig_ctx = \
-                    dns.tsig.validate(self.wire,
+                        dns.tsig.validate(self.wire,
                                       absolute_name,
                                       secret,
                                       int(time.time()),
@@ -660,17 +643,17 @@ class _WireReader(object):
                                       self.pout)
                 self.message.had_tsig = True
             else:
-                if ttl < 0:
-                    ttl = 0
-                if self.updating and \
-                   (rdclass == dns.rdataclass.ANY or
-                        rdclass == dns.rdataclass.NONE):
+                ttl = max(ttl, 0)
+                if self.updating and rdclass in [
+                    dns.rdataclass.ANY,
+                    dns.rdataclass.NONE,
+                ]:
                     deleting = rdclass
                     rdclass = self.zone_rdclass
                 else:
                     deleting = None
                 if deleting == dns.rdataclass.ANY or \
-                   (deleting == dns.rdataclass.NONE and
+                       (deleting == dns.rdataclass.NONE and
                         section is self.message.answer):
                     covers = dns.rdatatype.NONE
                     rd = None
@@ -815,31 +798,29 @@ class _TextReader(object):
                     self.tok.unget(token)
                     break
                 self.message.flags = self.message.flags | \
-                    dns.flags.from_text(token.value)
+                        dns.flags.from_text(token.value)
             if dns.opcode.is_update(self.message.flags):
                 self.updating = True
         elif what == 'edns':
             self.message.edns = self.tok.get_int()
             self.message.ednsflags = self.message.ednsflags | \
-                (self.message.edns << 16)
+                    (self.message.edns << 16)
         elif what == 'eflags':
-            if self.message.edns < 0:
-                self.message.edns = 0
+            self.message.edns = max(self.message.edns, 0)
             while True:
                 token = self.tok.get()
                 if not token.is_identifier():
                     self.tok.unget(token)
                     break
                 self.message.ednsflags = self.message.ednsflags | \
-                    dns.flags.edns_from_text(token.value)
+                        dns.flags.edns_from_text(token.value)
         elif what == 'payload':
             self.message.payload = self.tok.get_int()
-            if self.message.edns < 0:
-                self.message.edns = 0
+            self.message.edns = max(self.message.edns, 0)
         elif what == 'opcode':
             text = self.tok.get_string()
             self.message.flags = self.message.flags | \
-                dns.opcode.to_flags(dns.opcode.from_text(text))
+                    dns.opcode.to_flags(dns.opcode.from_text(text))
         elif what == 'rcode':
             text = self.tok.get_string()
             self.message.set_rcode(dns.rcode.from_text(text))
@@ -906,7 +887,7 @@ class _TextReader(object):
             token = self.tok.get()
             if not token.is_identifier():
                 raise dns.exception.SyntaxError
-            if rdclass == dns.rdataclass.ANY or rdclass == dns.rdataclass.NONE:
+            if rdclass in [dns.rdataclass.ANY, dns.rdataclass.NONE]:
                 deleting = rdclass
                 rdclass = self.zone_rdclass
         except dns.exception.SyntaxError:
@@ -943,13 +924,13 @@ class _TextReader(object):
                 u = token.value.upper()
                 if u == 'HEADER':
                     line_method = self._header_line
-                elif u == 'QUESTION' or u == 'ZONE':
+                elif u in ['QUESTION', 'ZONE']:
                     line_method = self._question_line
                     section = self.message.question
-                elif u == 'ANSWER' or u == 'PREREQ':
+                elif u in ['ANSWER', 'PREREQ']:
                     line_method = self._rr_line
                     section = self.message.answer
-                elif u == 'AUTHORITY' or u == 'UPDATE':
+                elif u in ['AUTHORITY', 'UPDATE']:
                     line_method = self._rr_line
                     section = self.message.authority
                 elif u == 'ADDITIONAL':
@@ -999,9 +980,9 @@ def from_file(f):
     """
 
     str_type = string_types
-    opts = 'rU'
-
     if isinstance(f, str_type):
+        opts = 'rU'
+
         f = open(f, opts)
         want_close = True
     else:

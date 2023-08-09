@@ -161,11 +161,7 @@ def opdata1_unpack(data):
     HMAC_LENGTH = 32
     if data[:HEADER_LENGTH] != b"opdata01":
         data = base64.b64decode(data)
-    if PY3 or PMV:
-        MAGIC = b"opdata01"
-    else:
-        MAGIC = "opdata01"
-
+    MAGIC = b"opdata01" if PY3 or PMV else "opdata01"
     if data[:HEADER_LENGTH] != MAGIC:
         raise TypeError("expected opdata1 format message")
     plaintext_length, iv = struct.unpack("<Q16s",
@@ -179,19 +175,19 @@ def opdata1_unpack(data):
 class CloudKeychain(object):  # also handles "OPVault format"
     def __init__(self, path, name='default'):
         self.path = path
-        self.keys = list()
+        self.keys = []
         self.name = name
         self.entries = None
         self.processed = False
         self.__open_keys_file()
 
     def __repr__(self):
-        return '<%s.CloudKeychain path="%s">' % (self.__module__, self.path)
+        return f'<{self.__module__}.CloudKeychain path="{self.path}">'
 
     def __open_keys_file(self):
         try:
             keys_file_path = \
-                os.path.join(self.path, 'default', 'profile.js')
+                    os.path.join(self.path, 'default', 'profile.js')
             if os.path.exists(keys_file_path):
                 self.processed = True
             else:
@@ -202,14 +198,12 @@ class CloudKeychain(object):  # also handles "OPVault format"
 
             salt = base64.b64decode(data['salt'])
             masterKey = base64.b64decode(data['masterKey'])
-            sys.stdout.write("$cloudkeychain$%s$%s$%s$%s$%s" % (len(salt),
-                binascii.hexlify(salt).decode("ascii"),
-                data["iterations"],
-                len(masterKey),
-                binascii.hexlify(masterKey).decode("ascii")))
+            sys.stdout.write(
+                f'$cloudkeychain${len(salt)}${binascii.hexlify(salt).decode("ascii")}${data["iterations"]}${len(masterKey)}${binascii.hexlify(masterKey).decode("ascii")}'
+            )
 
             plaintext_length, iv, cryptext, expected_hmac, hmac_d_data = \
-                opdata1_unpack(data['masterKey'])
+                    opdata1_unpack(data['masterKey'])
 
             sys.stdout.write("$%s$%s$%s$%s$%s$%s$%s$%s$%s\n" %
                 (plaintext_length, len(iv),
@@ -230,13 +224,12 @@ class AgileKeychain(object):
         self.path = path
         self.name = name
         self.entries = None
-        self.keys = list()
-        ret = self.__open_keys_file()
-        if ret:
+        self.keys = []
+        if ret := self.__open_keys_file():
             self.john_output()
 
     def __repr__(self):
-        return '<%s.AgileKeychain path="%s">' % (self.__module__, self.path)
+        return f'<{self.__module__}.AgileKeychain path="{self.path}">'
 
     def __open_keys_file(self):
         """Open the json file containing the keys for decrypting the
@@ -274,13 +267,13 @@ class AgileKeychain(object):
         return True
 
     def john_output(self):
-        sys.stdout.write("%s:$agilekeychain$%s" % (os.path.basename(self.path), len(self.keys)))
+        sys.stdout.write(
+            f"{os.path.basename(self.path)}:$agilekeychain${len(self.keys)}"
+        )
         for i in range(0, len(self.keys)):
-            sys.stdout.write("*%s*%s*%s*%s*%s" % (self.keys[i].iterations,
-                len(self.keys[i].salt),
-                binascii.hexlify(self.keys[i].salt).decode("ascii"),
-                len(self.keys[i].data),
-                binascii.hexlify(self.keys[i].data).decode("ascii")))
+            sys.stdout.write(
+                f'*{self.keys[i].iterations}*{len(self.keys[i].salt)}*{binascii.hexlify(self.keys[i].salt).decode("ascii")}*{len(self.keys[i].data)}*{binascii.hexlify(self.keys[i].data).decode("ascii")}'
+            )
 
         sys.stdout.write("\n")
 
@@ -292,12 +285,9 @@ def process_sqlite(filename):
     found = False
     for row in rows:
         masterKey, salt, iterations  = row
-        sys.stdout.write("$cloudkeychain$%s$%s$%s$%s$%s" % (
-            len(salt),
-            binascii.hexlify(salt).decode("ascii"),
-            iterations,
-            len(masterKey),
-            binascii.hexlify(masterKey).decode("ascii")))
+        sys.stdout.write(
+            f'$cloudkeychain${len(salt)}${binascii.hexlify(salt).decode("ascii")}${iterations}${len(masterKey)}${binascii.hexlify(masterKey).decode("ascii")}'
+        )
 
         plaintext_length, iv, cryptext, expected_hmac, hmac_d_data = \
             opdata1_unpack(masterKey)
@@ -316,10 +306,7 @@ def process_sqlite(filename):
 
 
 def process_file(keychain):
-    found = False
-    if "sqlite" in keychain:  # XXX weak hack
-        found = process_sqlite(keychain)
-
+    found = process_sqlite(keychain) if "sqlite" in keychain else False
     if found:
         return
 

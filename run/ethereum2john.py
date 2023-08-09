@@ -79,25 +79,25 @@ def process_file(filename):
         kdf = crypto["kdf"]
         ciphertext = crypto["ciphertext"]
         mac = crypto["mac"]
-        if kdf == "scrypt":
+        if kdf == "pbkdf2":
             kdfparams = crypto["kdfparams"]
-            n = kdfparams["n"]
-            r = kdfparams["r"]
-            p = kdfparams["p"]
-            salt = kdfparams["salt"]
-            sys.stdout.write("%s:$ethereum$s*%s*%s*%s*%s*%s*%s\n" %
-                             (os.path.basename(filename), n, r, p, salt,
-                              ciphertext, mac))
-        elif kdf == "pbkdf2":
-            kdfparams = crypto["kdfparams"]
-            n = kdfparams["c"]
             prf = kdfparams["prf"]
             if prf != 'hmac-sha256':
                 sys.stdout.write("%s: unexpected prf '%s' found\n" % (filename, prf))
                 return
+            n = kdfparams["c"]
             salt = kdfparams["salt"]
             sys.stdout.write("%s:$ethereum$p*%s*%s*%s*%s\n" %
                              (os.path.basename(filename), n, salt,
+                              ciphertext, mac))
+        elif kdf == "scrypt":
+            kdfparams = crypto["kdfparams"]
+            salt = kdfparams["salt"]
+            n = kdfparams["n"]
+            r = kdfparams["r"]
+            p = kdfparams["p"]
+            sys.stdout.write("%s:$ethereum$s*%s*%s*%s*%s*%s*%s\n" %
+                             (os.path.basename(filename), n, r, p, salt,
                               ciphertext, mac))
         else:
             assert 0
