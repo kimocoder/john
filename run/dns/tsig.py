@@ -108,7 +108,7 @@ def sign(wire, keyname, secret, time, fudge, original_id, error,
         ctx = hmac.new(secret, digestmod=digestmod)
         ml = len(request_mac)
         if ml > 0:
-            outbuf = outbuf + struct.pack('!H', ml)
+            outbuf += struct.pack('!H', ml)
             ctx.update(struct.pack('!H', ml))
             outbuf = outbuf + request_mac
             ctx.update(request_mac)
@@ -156,8 +156,8 @@ def sign(wire, keyname, secret, time, fudge, original_id, error,
         algo_type = 5
     elif mac_length == 64:
         algo_type = 6
-    if algo_type != -1:
-        if pout:
+    if pout:
+        if algo_type != -1:
             sys.stdout.write("$rsvp$%d$%s$%s\n" % (algo_type, hexdump(outbuf), hexdump(omac)))
     mac = ctx.digest()
     mpack = struct.pack('!H', len(mac))
@@ -193,7 +193,7 @@ def validate(wire, keyname, secret, now, request_mac, tsig_start, tsig_rdata,
     if adcount == 0:
         raise dns.exception.FormError
     adcount -= 1
-    new_wire = wire[0:10] + struct.pack("!H", adcount) + wire[12:tsig_start]
+    new_wire = wire[:10] + struct.pack("!H", adcount) + wire[12:tsig_start]
     current = tsig_rdata
     (aname, used) = dns.name.from_wire(wire, current)
     current = current + used
@@ -226,19 +226,10 @@ def validate(wire, keyname, secret, now, request_mac, tsig_start, tsig_rdata,
     """
     time_low = time - fudge
     time_high = time + fudge
-    if now < time_low or now > time_high:
-        pass
-        # raise BadTime XXX
     (junk, our_mac, ctx) = sign(new_wire, keyname, secret, time, fudge,
                                 original_id, error, other_data,
                                 request_mac, ctx, multi, first, aname, omac=mac, pout=pout)
-    if our_mac != mac:
-        # raise BadSignature
-        return None
-    else:
-        # print("MAC is valid for the given password!")
-        pass
-    return ctx
+    return None if our_mac != mac else ctx
 
 
 def get_algorithm(algorithm):
@@ -255,8 +246,7 @@ def get_algorithm(algorithm):
     try:
         return (algorithm.to_digestable(), dns.hash.hashes[_hashes[algorithm]])
     except KeyError:
-        raise NotImplementedError("TSIG algorithm " + str(algorithm) +
-                                  " is not supported")
+        raise NotImplementedError(f"TSIG algorithm {str(algorithm)} is not supported")
 
 
 def get_algorithm_and_mac(wire, tsig_rdata, tsig_rdlen):

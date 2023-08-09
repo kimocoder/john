@@ -84,7 +84,7 @@ class Token(object):
         return self.ttype == DELIMITER
 
     def is_eol_or_eof(self):
-        return self.ttype == EOL or self.ttype == EOF
+        return self.ttype in [EOL, EOF]
 
     def __eq__(self, other):
         if not isinstance(other, Token):
@@ -195,12 +195,8 @@ class Tokenizer(object):
             f = StringIO(f.decode())
             if filename is None:
                 filename = '<string>'
-        else:
-            if filename is None:
-                if f is sys.stdin:
-                    filename = '<stdin>'
-                else:
-                    filename = '<file>'
+        elif filename is None:
+            filename = '<stdin>' if f is sys.stdin else '<file>'
         self.file = f
         self.ungotten_char = None
         self.ungotten_token = None
@@ -267,7 +263,7 @@ class Tokenizer(object):
         skipped = 0
         while True:
             c = self._get_char()
-            if c != ' ' and c != '\t':
+            if c not in [' ', '\t']:
                 if (c != '\n') or not self.multiline:
                     self._unget_char(c)
                     return skipped
@@ -327,18 +323,17 @@ class Tokenizer(object):
                             self.quoting = True
                             self.delimiters = _QUOTING_DELIMITERS
                             ttype = QUOTED_STRING
-                            continue
                         else:
                             self.quoting = False
                             self.delimiters = _DELIMITERS
                             self.skip_whitespace()
-                            continue
+                        continue
                     elif c == '\n':
                         return Token(EOL, '\n')
                     elif c == ';':
                         while 1:
                             c = self._get_char()
-                            if c == '\n' or c == '':
+                            if c in ['\n', '']:
                                 break
                             token += c
                         if want_comment:
@@ -389,7 +384,7 @@ class Tokenizer(object):
                 token += c
                 has_escape = True
                 c = self._get_char()
-                if c == '' or c == '\n':
+                if c in ['', '\n']:
                     raise dns.exception.UnexpectedEnd
             token += c
         if token == '' and ttype != QUOTED_STRING:

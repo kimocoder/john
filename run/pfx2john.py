@@ -47,8 +47,7 @@ def parse_pkcs12(filename):
             '''
         )
 
-    mac_data = pfx['mac_data']
-    if mac_data:
+    if mac_data := pfx['mac_data']:
         mac_algo = mac_data['mac']['digest_algorithm']['algorithm'].native
         key_length = {
             'sha1': 20,

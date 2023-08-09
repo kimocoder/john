@@ -227,7 +227,7 @@ def process_file(filename):
         idata = data[i:i+PGPdiskOnDiskUserInfo_size]
 
         fields = struct.unpack(PGPdiskOnDiskUserInfo_fmt, idata)
-        size, version, kind, magic, totalRecords, currentRecord, reserved = fields[0:7]
+        size, version, kind, magic, totalRecords, currentRecord, reserved = fields[:7]
         if (size == 512 and version == 0 and magic == 1464101120 and currentRecord == 0):  # fairly safe test
             if kind != 0x08:
                 sys.stderr.write("DEBUG: skipping over unsupported user record type %d!\n" % kind)
@@ -236,7 +236,9 @@ def process_file(filename):
             size, symmAlg, totalESKsize, reserved, userName, s2ktype, hashIterations, reserved2, salt, esk = fields[11:]
             userName = userName.strip("\x00")
             sys.stderr.write("DEBUG: %s, %s, %s, %s, %s, %s\n" % (size, symmAlg, totalESKsize, userName, s2ktype, hashIterations))
-            print("%s:$pgpwde$0*%s*%s*%s*%s*%s" % (userName, symmAlg, s2ktype, hashIterations, salt.encode("hex"), esk.encode("hex")[0:256]))
+            print(
+                f'{userName}:$pgpwde$0*{symmAlg}*{s2ktype}*{hashIterations}*{salt.encode("hex")}*{esk.encode("hex")[:256]}'
+            )
 
     f.close()
 

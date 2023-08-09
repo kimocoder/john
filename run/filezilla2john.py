@@ -33,8 +33,7 @@ def process_file(filename):
         if not hsh:
             continue
 
-        if hsh:
-            hsh = hsh.lower()
+        hsh = hsh.lower()
 
         if len(hsh) == 32 and not salt:  # Raw-MD5 hashes
             sys.stdout.write("%s:$dynamic_0$%s\n" % (username, hsh))

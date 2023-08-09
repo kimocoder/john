@@ -222,27 +222,22 @@ class TestMethods(unittest.TestCase):
         self.vectorBadChecksum = []
         self.vectorMisspelledSeedWord = []
 
-        #Translate Valid Seed to the location in the bip39 Word list
-        ## Get the english word list
-        f = open(os.path.join(bip39WordFileDirectory , "english.txt"), 'r', encoding="utf-8")
-        x = f.readlines()
-        f.close()
+        with open(os.path.join(bip39WordFileDirectory , "english.txt"), 'r', encoding="utf-8") as f:
+            x = f.readlines()
         bip39EnglishList = list(map(lambda s: normalize_string(s.strip()), x))
 
-        locationValidSeeds = []
-        ## translate EnglishValidSeeds seeds into the location format.
-        for myVector in self.EnglishValidSeeds:
-            locationValidSeeds.append([bip39EnglishList.index(word) for word in myVector[1].split(' ')])
-
+        locationValidSeeds = [
+            [bip39EnglishList.index(word) for word in myVector[1].split(' ')]
+            for myVector in self.EnglishValidSeeds
+        ]
         ## ok, we have a list of locations for each valid word, now we are going to go and get all of our languages.
         languageList = [str(os.path.join(bip39WordFileDirectory , files)) for files in os.listdir(bip39WordFileDirectory) if files.endswith(".txt")]
 
         self.assertTrue(len(languageList) >= 8)
 
         for languageFile in languageList:
-            f = open(languageFile, 'r', encoding="utf-8")
-            x = f.readlines()
-            f.close()
+            with open(languageFile, 'r', encoding="utf-8") as f:
+                x = f.readlines()
             bip39LanguageList = list(map(lambda s: normalize_string(s.strip()), x))
             self.assertTrue(len(bip39LanguageList) == 2048)
 
@@ -257,8 +252,12 @@ class TestMethods(unittest.TestCase):
                     self.vectorInvalidICO.append(self.vectorValid[-1])
 
                 #### We are going to have extra words, only need two since we mod 3.
-                self.vectorInvalid_1ExtraWord.append(self.vectorValid[-1] + " " + str(bip39LanguageList[0]))
-                self.vectorInvalid_2ExtraWords.append(self.vectorInvalid_1ExtraWord[-1] + " " + str(bip39LanguageList[0]))
+                self.vectorInvalid_1ExtraWord.append(
+                    f"{self.vectorValid[-1]} {str(bip39LanguageList[0])}"
+                )
+                self.vectorInvalid_2ExtraWords.append(
+                    f"{self.vectorInvalid_1ExtraWord[-1]} {str(bip39LanguageList[0])}"
+                )
 
                 #change the checksum bit (changing others can still result in valid mnemonics)
                 original_loc = myValidSeedLocations[-1]
@@ -273,7 +272,7 @@ class TestMethods(unittest.TestCase):
                 self.vectorMisspelledSeedWord.append(" ".join([bip39LanguageList[location] for location in myValidSeedLocations]))
                 bip39LanguageList[0] = original_val
                 myValidSeedLocations[0] = original_loc
-                
+
         #print("All seed test vectors loaded for all languages")
 
         #suppress stderr

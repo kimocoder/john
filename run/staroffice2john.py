@@ -51,21 +51,26 @@ def process_file(filename):
         if element.get("{http://openoffice.org/2001/manifest}full-path") == target:
             for j in range(i + 1, i + 1 + 3):
                 element = elements[j]
-                data = element.get("{http://openoffice.org/2001/manifest}checksum")
-                if data:
+                if data := element.get(
+                    "{http://openoffice.org/2001/manifest}checksum"
+                ):
                     is_encrypted = True
                     checksum = data
-                data = element.get("{http://openoffice.org/2001/manifest}initialisation-vector")
-                if data:
+                if data := element.get(
+                    "{http://openoffice.org/2001/manifest}initialisation-vector"
+                ):
                     iv = data
-                data = element.get("{http://openoffice.org/2001/manifest}salt")
-                if data:
+                if data := element.get(
+                    "{http://openoffice.org/2001/manifest}salt"
+                ):
                     salt = data
-                data = element.get("{http://openoffice.org/2001/manifest}iteration-count")
-                if data:
+                if data := element.get(
+                    "{http://openoffice.org/2001/manifest}iteration-count"
+                ):
                     iteration_count = data
-                data = element.get("{http://openoffice.org/2001/manifest}algorithm-name")
-                if data:
+                if data := element.get(
+                    "{http://openoffice.org/2001/manifest}algorithm-name"
+                ):
                     assert data == "Blowfish CFB"
 
     if not is_encrypted:
@@ -92,11 +97,11 @@ def process_file(filename):
         length = 1024
         original_length = 1024
     else:
-        # pad to make length multiple of 8
-        pad = b"00000000"
         pad_length = original_length % 8
         if pad_length > 0:
-            content = content + pad[0:pad_length]
+            # pad to make length multiple of 8
+            pad = b"00000000"
+            content = content + pad[:pad_length]
         length = len(content)
 
     sys.stdout.write("%s:$sxc$*%s*%s*%s*%s*%s*%d*%s*%d*%s*%d*%d*%s\n" % \

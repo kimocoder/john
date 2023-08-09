@@ -30,12 +30,11 @@ def process_file(filename):
         try:
             plist = plistlib.load(fp, use_builtin_types=True)
         except:
-            print("%s: unable to process as a plist file!" % filename)
+            print(f"{filename}: unable to process as a plist file!")
             return
 
-        hints = ""
         hl = plist.get('realname', []) + plist.get('hint', [])
-        hints += ",".join(hl)
+        hints = "" + ",".join(hl)
         uid = plist.get('uid', ["500"])[0]
         gid = plist.get('gid', ["500"])[0]
         shell = plist.get('shell', ["bash"])[0]
@@ -44,7 +43,7 @@ def process_file(filename):
         try:
             data = plistlib.loads(plist['ShadowHashData'][0])
         except:
-            print("%s: could not find ShadowHashData" % filename)
+            print(f"{filename}: could not find ShadowHashData")
             return
 
         d = data.get('SALTED-SHA512-PBKDF2', None)
@@ -56,16 +55,27 @@ def process_file(filename):
         entropy = binascii.hexlify(d.get('entropy')).decode("ascii")
         iterations = d.get('iterations')
 
-        sys.stdout.write("%s:$pbkdf2-hmac-sha512$%d.%s.%s:%s:%s:%s:%s:%s\n" % \
-                (name, iterations, salt, entropy[0:128], uid, gid, hints,
-                 shell, filename))
+        sys.stdout.write(
+            "%s:$pbkdf2-hmac-sha512$%d.%s.%s:%s:%s:%s:%s:%s\n"
+            % (
+                name,
+                iterations,
+                salt,
+                entropy[:128],
+                uid,
+                gid,
+                hints,
+                shell,
+                filename,
+            )
+        )
 
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("This program helps in extracting password hashes from OS X / macOS systems (>= Mountain Lion -> 10.8+).\n")
         print("Run this program against .plist file(s) obtained from /var/db/dslocal/nodes/Default/users/<username>.plist location.\n")
-        print("Usage: %s <OS X / macOS .plist files>" % sys.argv[0])
+        print(f"Usage: {sys.argv[0]} <OS X / macOS .plist files>")
         sys.exit(1)
 
     for i in range(1, len(sys.argv)):

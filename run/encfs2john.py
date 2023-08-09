@@ -26,13 +26,13 @@ def process_folder(folder):
     tree.parse(mf)
     r = tree.getroot()
     elements = list(r.iter())
-    cipher = None
     keySize = None
     iterations = None
     salt = None
     saltLen = None
     dataLen = None
     data = None
+    cipher = None
     for element in elements:
         if element.tag == "keySize":
             keySize = element.text
@@ -46,19 +46,20 @@ def process_folder(folder):
                 return
         if element.tag == "name" and not cipher:
             cipher = element.text
-        if element.tag == "saltData":
-            salt = element.text
-        if element.tag == "saltLen":
-            saltLen = element.text
-        if element.tag == "encodedKeySize":
-            dataLen = element.text
         if element.tag == "encodedKeyData":
             data = element.text
 
+        elif element.tag == "encodedKeySize":
+            dataLen = element.text
+        elif element.tag == "saltData":
+            salt = element.text
+        elif element.tag == "saltLen":
+            saltLen = element.text
     if not cipher or not keySize or not iterations or not salt or \
        not saltLen or not dataLen or not data:
-        sys.stderr.write("%s contains bad data, please report this " \
-            "if target contains valid EncFS data" % filename)
+        sys.stderr.write(
+            f"{filename} contains bad data, please report this if target contains valid EncFS data"
+        )
         return
 
     if cipher.upper().find("AES") > -1:

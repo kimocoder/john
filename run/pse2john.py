@@ -34,22 +34,22 @@ def parse_pse(filename):
 
     pse_file = SAPPSEFile(data)
 
-    if pse_file.enc_cont.algorithm_identifier.alg_id == PKCS12_ALGORITHM_PBE1_SHA_3DES_CBC:
-        pbe_algo = 1
-        salt = hexlify(pse_file.enc_cont.algorithm_identifier.parameters.salt.val)
-        salt_size = len(pse_file.enc_cont.algorithm_identifier.parameters.salt.val)
-        iterations = pse_file.enc_cont.algorithm_identifier.parameters.iterations.val
-        iv = ""
-        iv_size = len(iv)
-    else:
+    if (
+        pse_file.enc_cont.algorithm_identifier.alg_id
+        != PKCS12_ALGORITHM_PBE1_SHA_3DES_CBC
+    ):
         raise Exception("Unsupported encryption algorithm")
 
+    pbe_algo = 1
+    salt = hexlify(pse_file.enc_cont.algorithm_identifier.parameters.salt.val)
+    salt_size = len(pse_file.enc_cont.algorithm_identifier.parameters.salt.val)
+    iterations = pse_file.enc_cont.algorithm_identifier.parameters.iterations.val
+    iv = ""
+    iv_size = len(iv)
     encrypted_pin = hexlify(pse_file.enc_cont.encrypted_pin.val)
     encrypted_pin_length = len(pse_file.enc_cont.encrypted_pin.val)
 
-    return "{}:$pse${}${}${}${}${}${}${}${}:::::\n".format(os.path.basename(filename),
-            pbe_algo, iterations, salt_size, salt, iv_size, iv,
-            encrypted_pin_length, encrypted_pin)
+    return f"{os.path.basename(filename)}:$pse${pbe_algo}${iterations}${salt_size}${salt}${iv_size}${iv}${encrypted_pin_length}${encrypted_pin}:::::\n"
 
 
 if __name__ == "__main__":

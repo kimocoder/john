@@ -25,7 +25,7 @@ def process_file(filename):
         for line in f.read().splitlines():
             try:
                 data = line.split(':')
-                out = data[0] + ":$as400ssha1$" + data[1] + "$" + data[0]
+                out = f"{data[0]}:$as400ssha1${data[1]}${data[0]}"
                 print(out)
             except:
                 sys.stderr.write("Error: parsing of line '%s' failed - skipping\n" % line)

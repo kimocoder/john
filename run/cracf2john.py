@@ -14,7 +14,7 @@ import sys
 
 def process_file(filename):
     with open(filename, "r") as f:
-        for line in f.readlines():
+        for line in f:
             data = line.split()
             sys.stdout.write("%s:$racf$*%s*%s*%s\n" % \
                      (data[0], data[0], data[-1], data[-2]))

@@ -138,7 +138,7 @@ def process_file(filename, keystore_type="bks"):
             chain_length = b4.unpack_from(data, pos)[0]
             pos += 4
 
-            for n in range(chain_length):
+            for _ in range(chain_length):
                 cert_type, pos = _read_utf(data, pos)
                 cert_data, pos = _read_data(data, pos)
 

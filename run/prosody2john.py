@@ -19,31 +19,28 @@ def cleanup(s):
 
 
 def process_file(name):
-    f = open(name, "rb")
+    with open(name, "rb") as f:
+        iterations = None
+        stored_key = None
+        salt = None
 
-    iterations = None
-    stored_key = None
-    salt = None
+        for l in f:
+            try:
+                _, v = l.decode("utf-8").split("=")
+            except ValueError:
+                continue
+            v = cleanup(v)
+            if b"iteration_count" in l:
+                iterations = v
+            if b"stored_key" in l:
+                stored_key = v
+            if b"salt" in l:
+                salt = hexlify(v.encode("ascii")).decode("ascii")
 
-    for l in f:
-        try:
-            _, v = l.decode("utf-8").split("=")
-        except ValueError:
-            continue
-        v = cleanup(v)
-        if b"iteration_count" in l:
-            iterations = v
-        if b"stored_key" in l:
-            stored_key = v
-        if b"salt" in l:
-            salt = hexlify(v.encode("ascii")).decode("ascii")
-
-    if iterations and stored_key and salt:
-        sys.stdout.write("%s:$xmpp-scram$0$%s$%s$%s$%s\n" %
-                         (os.path.basename(name), iterations, len(salt) // 2,
-                          salt, stored_key))
-
-    f.close()
+        if iterations and stored_key and salt:
+            sys.stdout.write("%s:$xmpp-scram$0$%s$%s$%s$%s\n" %
+                             (os.path.basename(name), iterations, len(salt) // 2,
+                              salt, stored_key))
 
 
 if __name__ == "__main__":

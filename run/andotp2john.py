@@ -30,7 +30,7 @@ def process_file(filename):
     if len(data) < 12 + 2 + 16:  # IV + minimum-data-size + TAG
         return
 
-    iv = data[0:12]
+    iv = data[:12]
     tag = data[-16:]
     ciphertext = data[12:-16]
 

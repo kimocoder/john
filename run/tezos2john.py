@@ -55,10 +55,7 @@ if not PY3:
 ### Borrowed code starts, The MIT License (MIT), Copyright (c) 2013 Vitalik Buterin, https://github.com/vbuterin/pybitcointools ###
 
 def bytes_to_hex_string(b):
-    if isinstance(b, str):
-        return b
-
-    return ''.join('{:02x}'.format(y) for y in b)
+    return b if isinstance(b, str) else ''.join('{:02x}'.format(y) for y in b)
 
 def safe_from_hex(s):
     return bytes.fromhex(s)
@@ -105,15 +102,13 @@ def encode(val, base, minlen=0):
 
     pad_size = minlen - len(result_bytes)
 
-    padding_element = b'\x00' if base == 256 else b'1' \
-        if base == 58 else b'0'
     if (pad_size > 0):
+        padding_element = b'\x00' if base == 256 else b'1' \
+            if base == 58 else b'0'
         result_bytes = padding_element*pad_size + result_bytes
 
     result_string = ''.join([chr(y) for y in result_bytes])
-    result = result_bytes if base == 256 else result_string
-
-    return result
+    return result_bytes if base == 256 else result_string
 
 def decode(string, base):
     if base == 256 and isinstance(string, str):
@@ -143,9 +138,7 @@ def bin_dbl_sha256(s):
     return hashlib.sha256(hashlib.sha256(bytes_to_hash).digest()).digest()
 
 def lpad(msg, symbol, length):
-    if len(msg) >= length:
-        return msg
-    return symbol * (length - len(msg)) + msg
+    return msg if len(msg) >= length else symbol * (length - len(msg)) + msg
 
 def get_code_string(base):
     if base in code_strings:
@@ -159,7 +152,7 @@ def changebase(string, frm, to, minlen=0):
     return encode(decode(string, frm), to, minlen)
 
 def b58check_to_bin(inp):
-    leadingzbytes = len(re.match('^1*', inp).group(0))
+    leadingzbytes = len(re.match('^1*', inp)[0])
     data = b'\x00' * leadingzbytes + changebase(inp, 58, 256)
     assert bin_dbl_sha256(data[:-4])[:4] == data[-4:]
     return data[1:-4]
@@ -167,7 +160,7 @@ def b58check_to_bin(inp):
 ### Borrowed code ends ####
 
 def getSeedWordListFromString(seedWords):
-    return [seedWord for seedWord in normalize_string(seedWords).split(' ')]
+    return list(normalize_string(seedWords).split(' '))
 
 # from https://github.com/trezor/python-mnemonic/blob/master/mnemonic/mnemonic.py
 def normalize_string(txt):
@@ -198,24 +191,26 @@ def isValidMnemonic(seedWords):
     expectedNuberOfFiles = 8
     languageList = [str(os.path.join(bip39WordFileDirectory , files)) for files in os.listdir(bip39WordFileDirectory) if files.endswith(".txt")]
     if (len(languageList) < expectedNuberOfFiles):
-        sys.stderr.write("[WARNING] Language List Error. Language files not detected! Files found=" + str(len(languageList)) + " expecting at least " + str(expectedNuberOfFiles) + "\n")
+        sys.stderr.write(
+            f"[WARNING] Language List Error. Language files not detected! Files found={len(languageList)} expecting at least {expectedNuberOfFiles}"
+            + "\n"
+        )
         return False
 
     for languageFile in languageList:
-         f = open(languageFile, 'r', encoding="utf-8")
-         x = f.readlines()
-         f.close()
-         bip39Words = list(map(lambda s: normalize_string(s.strip()), x))
-         if len(bip39Words) != 2048:
-            sys.stderr.write("[WARNING] Error in " + languageFile + " " + str(len(bip39Words)) + " words detected. There should be exactly 2048 words!\n")
+        with open(languageFile, 'r', encoding="utf-8") as f:
+            x = f.readlines()
+        bip39Words = list(map(lambda s: normalize_string(s.strip()), x))
+        if len(bip39Words) != 2048:
+            sys.stderr.write(
+                f"[WARNING] Error in {languageFile} {len(bip39Words)}"
+                + " words detected. There should be exactly 2048 words!\n"
+            )
             return False
 
          #Do all the words exist in the selected list? if so validate it.
-         if set(myWords).issubset(bip39Words):
-            if isValidChecksumForMnemonic(seedWords, bip39Words):
-                return True
-            return False
-
+        if set(myWords).issubset(bip39Words):
+            return bool(isValidChecksumForMnemonic(seedWords, bip39Words))
     sys.stderr.write("[WARNING] Provided Seed Words Are Not Valid Seed Words!\n")
     return False
 
@@ -235,7 +230,7 @@ def isValidChecksumForMnemonic(seedWords, wordList):
     #check to ensure that seed words are on the list, and to get a string for the checksum process
     try:
         for t in myWords:
-            myWordPosBinString += str(bin(wordList.index(t)))[2:].zfill(11);
+            myWordPosBinString += bin(wordList.index(t))[2:].zfill(11);
     except ValueError:
         sys.stderr.write("[WARNING] Seed Word Not Found On Word List!\n")
         return False
@@ -267,7 +262,7 @@ if __name__ == "__main__":
         data = json.loads(data)
         mnemonic, email, address = (" ".join(data["mnemonic"]), data["email"], data["pkh"])
         raw_address = binascii.hexlify(b58check_to_bin(address)).decode("ascii")
-        print("%s:$tezos$1*%s*%s*%s*%s*%s" % (email, 2048, mnemonic, email, address, raw_address))
+        print(f"{email}:$tezos$1*2048*{mnemonic}*{email}*{address}*{raw_address}")
         sys.exit(0)
     if len(myArgs) != 3:
         sys.stderr.write("Usage: %s \'mnemonic data (15 words)\' \'email\' \'public key\'\n" %
@@ -280,8 +275,8 @@ if __name__ == "__main__":
         sys.stderr.write("[WARNING] Very large salt (email address) found, which is unsupported by tezos-opencl format!\n")
 
     if args.ignoreRules == False:
-        if args.ignoreICORules == False:
-           if isICOValidSeed(mnemonic) == False:
+        if isICOValidSeed(mnemonic) == False:
+            if args.ignoreICORules == False:
                 sys.stderr.write("[ERROR] ICO Rules Broken, Bad Seed Words! Use the -h argument for more options.\n")
                 sys.exit(1)
         if  isValidMnemonic(mnemonic) == False:
@@ -298,4 +293,4 @@ if __name__ == "__main__":
         sys.stderr.write("[ERROR] Invalid address, Please Check before continuing.\n")
         sys.exit(1)
 
-    print("%s:$tezos$1*%s*%s*%s*%s*%s" % (email, 2048, mnemonic, email, address, raw_address))
+    print(f"{email}:$tezos$1*2048*{mnemonic}*{email}*{address}*{raw_address}")

@@ -75,7 +75,7 @@ class GnomeKeyring_Parser():
         hash_value = self.read_keyring(16)
         hash_value = self.hexstr(hash_value)
         crypto_size = len(hash_value)//2
-        return self.KEYRING_FILE + ':$keyring$' + salt + '*' + str(iterations) + '*' + str(crypto_size) + '*0*'+ hash_value
+        return f'{self.KEYRING_FILE}:$keyring${salt}*{iterations}*{str(crypto_size)}*0*{hash_value}'
 
 
 if __name__ == "__main__":

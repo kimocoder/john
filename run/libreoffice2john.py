@@ -52,31 +52,38 @@ def process_file(filename):
         if element.get("{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}full-path") == "content.xml":
             for j in range(i + 1, i + 1 + 4):
                 element = elements[j]
-                # print element.items()
-                data = element.get("{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}checksum")
-                if data:
+                if data := element.get(
+                    "{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}checksum"
+                ):
                     is_encrypted = True
                     checksum = data
-                data = element.get("{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}checksum-type")
-                if data:
+                if data := element.get(
+                    "{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}checksum-type"
+                ):
                     checksum_type = data
-                data = element.get("{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}initialisation-vector")
-                if data:
+                if data := element.get(
+                    "{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}initialisation-vector"
+                ):
                     iv = data
-                data = element.get("{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}salt")
-                if data:
+                if data := element.get(
+                    "{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}salt"
+                ):
                     salt = data
-                data = element.get("{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}algorithm-name")
-                if data:
+                if data := element.get(
+                    "{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}algorithm-name"
+                ):
                     algorithm_name = data
-                data = element.get("{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}iteration-count")
-                if data:
+                if data := element.get(
+                    "{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}iteration-count"
+                ):
                     iteration_count = data
-                data = element.get("{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}key-size")
-                if data:
+                if data := element.get(
+                    "{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}key-size"
+                ):
                     key_size = data
-                data = element.get("{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}start-key-generation-name")
-                if data:
+                if data := element.get(
+                    "{urn:oasis:names:tc:opendocument:xmlns:manifest:1.0}start-key-generation-name"
+                ):
                     start_key_generation_name = data
 
     if not is_encrypted:
@@ -133,13 +140,12 @@ def process_file(filename):
         meta_r = meta_tree.getroot()
         for office_meta in meta_r:
             for child in office_meta:
-                if "subject" in child.tag:
-                    gecos += child.text
-                elif "keyword" in child.tag:
-                    gecos += child.text
-                elif "title" in child.tag:
-                    gecos += child.text
-                elif "description" in child.tag:
+                if (
+                    "subject" in child.tag
+                    or "keyword" in child.tag
+                    or "title" in child.tag
+                    or "description" in child.tag
+                ):
                     gecos += child.text
         gecos = gecos.replace("\n","").replace("\r","").replace(":","")
     except:

@@ -16,7 +16,7 @@ if __name__ == "__main__":
         usage()
 
     with open(sys.argv[1], "r") as f:
-        for line in f.readlines():
+        for line in f:
             line = line.rstrip().replace(':', '*')
             if len(sys.argv) == 2:
                 sys.stdout.write("$ike$*0*%s\n" % (line))

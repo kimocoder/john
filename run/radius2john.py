@@ -40,9 +40,15 @@ for filename in filenames:
             src_ip = packet[IP].src
             dst_ip = packet[IP].dst
 
-            if packet[Radius].code == 4 and not (src_ip, dst_ip) in accounting_request_packets:
+            if (
+                packet[Radius].code == 4
+                and (src_ip, dst_ip) not in accounting_request_packets
+            ):
                 accounting_request_packets[(src_ip, dst_ip)] = packet
-            elif packet[Radius].code == 5 and not (dst_ip, src_ip) in accounting_response_packets:
+            elif (
+                packet[Radius].code == 5
+                and (dst_ip, src_ip) not in accounting_response_packets
+            ):
                 accounting_response_packets[(dst_ip, src_ip)] = packet
 
     for ips, packet in accounting_response_packets.items():

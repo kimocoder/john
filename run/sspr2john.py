@@ -165,16 +165,15 @@ class _DictSAXHandler(object):
         if i == -1:
             return full_name
         namespace, name = full_name[:i], full_name[i+1:]
-        short_namespace = self.namespaces.get(namespace, namespace)
-        if not short_namespace:
-            return name
-        else:
+        if short_namespace := self.namespaces.get(namespace, namespace):
             return self.namespace_separator.join((short_namespace, name))
+        else:
+            return name
 
     def _attrs_to_dict(self, attrs):
         if isinstance(attrs, dict):
             return attrs
-        return self.dict_constructor(zip(attrs[0::2], attrs[1::2]))
+        return self.dict_constructor(zip(attrs[::2], attrs[1::2]))
 
     def startNamespaceDecl(self, prefix, uri):
         self.namespace_declarations[prefix or ''] = uri
@@ -256,10 +255,7 @@ class _DictSAXHandler(object):
             else:
                 item[key] = [value, data]
         except KeyError:
-            if self._should_force_list(key, data):
-                item[key] = [data]
-            else:
-                item[key] = data
+            item[key] = [data] if self._should_force_list(key, data) else data
         return item
 
     def _should_force_list(self, key, value):
@@ -447,9 +443,9 @@ def _emit(key, value, content_handler,
         if result is None:
             return
         key, value = result
-    if (not hasattr(value, '__iter__')
-            or isinstance(value, _basestring)
-            or isinstance(value, dict)):
+    if not hasattr(value, '__iter__') or isinstance(
+        value, (_basestring, dict)
+    ):
         value = [value]
     for index, v in enumerate(value):
         if full_document and depth == 0 and index > 0:
@@ -558,17 +554,10 @@ def extract_hashes_from_xml(user, xml):
         salt = answer.get("@salt", "NONE")
         text = answer["#text"]
         ofmt = -1
-        if fmt == "SHA1_SALT":
-            # print(fmt, salt, challenge, text, hashcount)
-            ofmt = 2
-        elif fmt == "SHA1":
-            ofmt = 1
+        if fmt == "BCRYPT":
+            print(f"{user}:{text}:::::{challenge}")
         elif fmt == "MD5":
             ofmt = 0
-        elif fmt == "SHA256_SALT":
-            ofmt = 3
-        elif fmt == "SHA512_SALT":
-            ofmt = 4
         elif fmt == "PBKDF2":
             # NOTE: attacker's cost is lower than defender's cost for all SSPR PBKDF2
             # hashing schemes!
@@ -577,7 +566,7 @@ def extract_hashes_from_xml(user, xml):
             if PY3:
                 h = h.decode("ascii")
                 salt = salt.decode("ascii")
-            print("%s:$pbkdf2-hmac-sha1$%s$%s$%s:::::%s" % (user, hashcount, salt, h, challenge))
+            print(f"{user}:$pbkdf2-hmac-sha1${hashcount}${salt}${h}:::::{challenge}")
         elif fmt == "PBKDF2_SHA256":
             h = base64.b64encode(base64.b64decode(text)[:32])
             # a terrible hack follows, use "adapted base64" alphabet (using . instead of + and with no padding)
@@ -586,16 +575,14 @@ def extract_hashes_from_xml(user, xml):
             salt = salt.rstrip("=").replace("+", ".")
             if PY3:
                 h = h.decode("ascii")
-            print("%s:$pbkdf2-sha256$%s$%s$%s:::::%s" % (user, hashcount, salt, h, challenge))
-        elif fmt == "PBKDF2_SHA512":  # the default in SSPR 4.2
+            print(f"{user}:$pbkdf2-sha256${hashcount}${salt}${h}:::::{challenge}")
+        elif fmt == "PBKDF2_SHA512":
             h = hexlify(base64.b64decode(text))[:128]
             salt = hexlify(salt)
             if PY3:
                 h = h.decode("ascii")
                 salt = salt.decode("ascii")
-            print("%s:$pbkdf2-hmac-sha512$%s.%s.%s:::::%s" % (user, hashcount, salt, h, challenge))
-        elif fmt == "BCRYPT":
-            print("%s:%s:::::%s" % (user, text, challenge))
+            print(f"{user}:$pbkdf2-hmac-sha512${hashcount}.{salt}.{h}:::::{challenge}")
         elif fmt == "SCRYPT":
             _, _, X, salt, h = text.split("$")
             X = int(X, 16)
@@ -603,13 +590,22 @@ def extract_hashes_from_xml(user, xml):
             r = (X & 0XFF00) >> 8
             N = 2 ** ((X & 0XFF0000) >> 16)
             # print("%s:%s:::::%s" % (user, text, challenge))
-            print("%s:$ScryptKDF.pm$%s*%s*%s*%s*%s:::::%s" % (user, N, r, p, salt, h, challenge))
+            print(f"{user}:$ScryptKDF.pm${N}*{r}*{p}*{salt}*{h}:::::{challenge}")
 
+        elif fmt == "SHA1":
+            ofmt = 1
+        elif fmt == "SHA1_SALT":
+            # print(fmt, salt, challenge, text, hashcount)
+            ofmt = 2
+        elif fmt == "SHA256_SALT":
+            ofmt = 3
+        elif fmt == "SHA512_SALT":
+            ofmt = 4
         if ofmt != -1:
             h = hexlify(base64.b64decode(text[2:]))  # skip over the "B:" prefix
             if PY3:
                 h = h.decode("ascii")
-            print("%s:$sspr$%s$%s$%s$%s:::::%s" % (user, ofmt, hashcount, salt, h, challenge))
+            print(f"{user}:$sspr${ofmt}${hashcount}${salt}${h}:::::{challenge}")
 
 
 def extract_hashes_old(user, m):
@@ -651,9 +647,9 @@ if __name__ == "__main__":
     searchFilter = "(objectClass=person)"
     searchAttribute = ["pwmResponseSet"]
     if options.secure:
-        hosturi = 'ldaps://%s:%s' % (options.host, options.port)
+        hosturi = f'ldaps://{options.host}:{options.port}'
     else:
-        hosturi = 'ldap://%s:%s' % (options.host, options.port)
+        hosturi = f'ldap://{options.host}:{options.port}'
 
     """
     searchScope = ldap.SCOPE_SUBTREE

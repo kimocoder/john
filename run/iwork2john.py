@@ -47,7 +47,7 @@ def process_old_file(filename):
     data = open(filename).read()
     # size = len(data)
 
-    if data[0:4] != b"\x50\x4B\x03\x04":  # ZIP signature, http://result42.com/projects/ZipFileLayout
+    if data[:4] != b"\x50\x4B\x03\x04":  # ZIP signature, http://result42.com/projects/ZipFileLayout
         assert 0
 
     # find end of central directory
@@ -57,33 +57,42 @@ def process_old_file(filename):
 
     # find central directory
     cdl_offset = ecdl + 16
-    cdl = struct.unpack("< I", data[cdl_offset:][0:4])[0]
-    if data[cdl:][0:4] != b"\x50\x4B\x01\x02":  # 0x2014b50 => Central Directory
+    cdl = struct.unpack("< I", data[cdl_offset:][:4])[0]
+    if data[cdl:][:4] != b"\x50\x4B\x01\x02":  # 0x2014b50 => Central Directory
         assert 0
 
-    entry_size = struct.unpack("< I", data[cdl + 30:][0:4])
+    entry_size = struct.unpack("< I", data[cdl + 30:][:4])
     if entry_size < 108:
         assert 0
 
-    idx = data_offset = cdl + struct.unpack("< H", data[cdl + 28:][0:2])[0]
-    s1 = data[idx+54:][0:4]  # version, and format (2 bytes each)?
+    idx = data_offset = cdl + struct.unpack("< H", data[cdl + 28:][:2])[0]
+    s1 = data[idx+54:][:4]
     if s1 != "\x01\x00\x01\x00":
         assert 0
     version = fmt = 1
-    iterations = struct.unpack("< I", data[idx+58:][0:4])[0]
+    iterations = struct.unpack("< I", data[idx+58:][:4])[0]
     salt = "someSalt"  # isn't this awesome?
-    verifier = data[data_offset+62:][0:80]  # 80 bytes
-    iv = verifier[0:16]
+    verifier = data[data_offset+62:][:80]
+    iv = verifier[:16]
     datablob = verifier[16:]
 
     # XXX also extract the passsword hint which is around this area, and is
     # prefixed by "iwph" string (for GECOS).
     sys.stdout.write(
-            "%s:$iwork$2$%d$%d$%d$%s$%s$%s::::%s\n" %
-            (os.path.basename(filename), version, fmt, iterations,
-             hexlify(salt)[0:len(salt) * 2].decode("ascii"),
-             hexlify(iv)[0:len(iv) * 2].decode("ascii"),
-             hexlify(datablob)[0:len(datablob) * 2].decode("ascii"), filename))
+        (
+            "%s:$iwork$2$%d$%d$%d$%s$%s$%s::::%s\n"
+            % (
+                os.path.basename(filename),
+                version,
+                fmt,
+                iterations,
+                hexlify(salt)[: len(salt) * 2].decode("ascii"),
+                hexlify(iv)[: len(iv) * 2].decode("ascii"),
+                hexlify(datablob)[: len(datablob) * 2].decode("ascii"),
+                filename,
+            )
+        )
+    )
 
 
 def process_file(filename):
@@ -112,26 +121,35 @@ def process_file(filename):
         process_old_file(filename)
         return
 
-    if password_verifier_data:
-        if len(password_verifier_data) != password_verifier_size:
-            assert False
+    if len(password_verifier_data) != password_verifier_size:
+        assert False
 
-        password_verifier = struct.unpack(password_verifier_fmt,
-                                          password_verifier_data)
-        version, fmt, iterations, salt, iv, datablob = password_verifier
+    password_verifier = struct.unpack(password_verifier_fmt,
+                                      password_verifier_data)
+    version, fmt, iterations, salt, iv, datablob = password_verifier
 
-        if version != 2 or fmt != 1:
-            sys.stderr.write(
-                "[%s] unsupported version (%d) or format (%d)\n" % (version, fmt))
-            return
+    if version != 2 or fmt != 1:
+        sys.stderr.write(
+            "[%s] unsupported version (%d) or format (%d)\n" % (version, fmt))
+        return
 
-        hdatablob = hexlify(datablob)[0:len(datablob) * 2].decode("ascii")
-        sys.stdout.write("%s:$iwork$1$%d$%d$%d$%s$%s$%s::::%s %s\n" %
-                         (os.path.basename(filename), version, fmt, iterations,
-                          hexlify(salt)[0:len(salt) * 2].decode("ascii"),
-                          hexlify(iv)[0:len(iv) * 2].decode("ascii"),
-                          hdatablob, password_hint or "",
-                          os.path.basename(filename)))
+    hdatablob = hexlify(datablob)[:len(datablob) * 2].decode("ascii")
+    sys.stdout.write(
+        (
+            "%s:$iwork$1$%d$%d$%d$%s$%s$%s::::%s %s\n"
+            % (
+                os.path.basename(filename),
+                version,
+                fmt,
+                iterations,
+                hexlify(salt)[: len(salt) * 2].decode("ascii"),
+                hexlify(iv)[: len(iv) * 2].decode("ascii"),
+                hdatablob,
+                password_hint or "",
+                os.path.basename(filename),
+            )
+        )
+    )
 
 
 if __name__ == "__main__":

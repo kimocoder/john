@@ -84,10 +84,8 @@ def parse_axxfile2(axxdata, header_datalen, header_datalen_offset, headertype):
 
 
 def parse_axxfile(axxfile):
-    stream = open(axxfile, 'rb')
-    axxdata = stream.read()
-    stream.close()
-
+    with open(axxfile, 'rb') as stream:
+        axxdata = stream.read()
     # if header is 'MZ'
     if axxdata[:2] == b'\x4D\x5a':
         offset_PE_magic = struct.unpack('<L', axxdata[60:64])[0]
@@ -140,7 +138,7 @@ def parse_axxfile(axxfile):
 
 
 if __name__ == "__main__":
-    if (len(sys.argv) != 2 and len(sys.argv) != 3):
+    if len(sys.argv) not in [2, 3]:
         usage()
 
     # A_DEK == wrapped_key
@@ -152,14 +150,12 @@ if __name__ == "__main__":
     axxfile = sys.argv[1][sys.argv[1].rfind("/")+1:]
 
     if len(sys.argv) == 3:
-        keyfile = open(sys.argv[2], 'rb')
-        data = binascii.hexlify(keyfile.read())
-        if PY3:
-            data = data.decode("ascii")
-        keyfile_content = '*' + data
-        key_file_name = '*' + sys.argv[2][sys.argv[2].rfind("/")+1:]
-        keyfile.close()
-
+        with open(sys.argv[2], 'rb') as keyfile:
+            data = binascii.hexlify(keyfile.read())
+            if PY3:
+                data = data.decode("ascii")
+            keyfile_content = f'*{data}'
+            key_file_name = '*' + sys.argv[2][sys.argv[2].rfind("/")+1:]
     salt = binascii.hexlify(salt)
     wrapped_key = binascii.hexlify(wrapped_key)
 

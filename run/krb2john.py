@@ -44,7 +44,7 @@ def process_file(f):
 
     xmlData = etree.parse(f)
 
-    messages = [e for e in xmlData.xpath('/pdml/packet/proto[@name="kerberos"]')]
+    messages = list(xmlData.xpath('/pdml/packet/proto[@name="kerberos"]'))
     PA_DATA_ENC_TIMESTAMP = None
     etype = None
     user = ''
@@ -62,20 +62,7 @@ def process_file(f):
         # "kerberos.etype_info2.salt" value (salt) needs to be extracted
         # from a different packet when etype is 17 or 18!
         # if salt is empty, realm.user is used instead (in krb5pa-sha1_fmt_plug.c)
-        if message_type == "30":  # KRB-ERROR
-            r = msg.xpath('.//field[@name="kerberos.etype_info2.salt"]') or msg.xpath('.//field[@name="kerberos.salt"]') or msg.xpath('.//field[@name="kerberos.etype_info.salt"]')
-            if r:
-                if isinstance(r, list):
-                    # some of the entries might have "value" missing!
-                    for item in r:
-                        if "value" in item.attrib:
-                            try:
-                                salt = binascii.unhexlify(item.attrib["value"]).decode('ascii')
-                                break
-                            except:
-                                continue
-
-        if message_type == "10":  # Kerberos AS-REQ
+        if message_type == "10":
             # locate encrypted timestamp
             r = msg.xpath('.//field[@name="kerberos.padata"]//field[@name="kerberos.PA_ENC_TIMESTAMP.encrypted"]') or msg.xpath('.//field[@name="kerberos.padata"]//field[@name="kerberos.cipher"]')
             if not r:
@@ -100,9 +87,17 @@ def process_file(f):
                 r = r[0]
             realm = r.attrib["show"]
 
-            # locate cname
-            r = msg.xpath('.//field[@name="kerberos.req_body_element"]//field[@name="kerberos.KerberosString"]') or msg.xpath('.//field[@name="kerberos.kdc_req_body"]//field[@name="kerberos.name_string"]') or msg.xpath('.//field[@name="kerberos.req_body_element"]//field[@name="kerberos.CNameString"]')
-            if r:
+            if (
+                r := msg.xpath(
+                    './/field[@name="kerberos.req_body_element"]//field[@name="kerberos.KerberosString"]'
+                )
+                or msg.xpath(
+                    './/field[@name="kerberos.kdc_req_body"]//field[@name="kerberos.name_string"]'
+                )
+                or msg.xpath(
+                    './/field[@name="kerberos.req_body_element"]//field[@name="kerberos.CNameString"]'
+                )
+            ):
                 if isinstance(r, list):
                     r = r[0]
                 user = r.attrib["show"]
@@ -110,10 +105,10 @@ def process_file(f):
             if user == "":
                 user = salt
 
-            # user, realm and salt are unused when etype is 23 ;)
-            checksum = PA_DATA_ENC_TIMESTAMP[0:32]
-            enc_timestamp = PA_DATA_ENC_TIMESTAMP[32:]
             if etype == "23":  # user:$krb5pa$etype$user$realm$salt$HexTimestampHexChecksum
+                            # user, realm and salt are unused when etype is 23 ;)
+                checksum = PA_DATA_ENC_TIMESTAMP[:32]
+                enc_timestamp = PA_DATA_ENC_TIMESTAMP[32:]
                 sys.stdout.write("%s:$krb5pa$%s$%s$%s$%s$%s%s\n" % (user,
                             etype, user, realm, salt,
                             enc_timestamp,
@@ -124,6 +119,22 @@ def process_file(f):
                 sys.stdout.write("%s:$krb5pa$%s$%s$%s$%s$%s\n" % (user,
                             etype, user, realm, salt,
                             PA_DATA_ENC_TIMESTAMP))
+
+        elif message_type == "30":
+            if (
+                r := msg.xpath('.//field[@name="kerberos.etype_info2.salt"]')
+                or msg.xpath('.//field[@name="kerberos.salt"]')
+                or msg.xpath('.//field[@name="kerberos.etype_info.salt"]')
+            ):
+                if isinstance(r, list):
+                    # some of the entries might have "value" missing!
+                    for item in r:
+                        if "value" in item.attrib:
+                            try:
+                                salt = binascii.unhexlify(item.attrib["value"]).decode('ascii')
+                                break
+                            except:
+                                continue
 
     for msg in messages:  # extract hashes from TGS-REP messages
         r = msg.xpath('.//field[@name="kerberos.msg_type"]') or msg.xpath('.//field[@name="kerberos.msg.type"]')
@@ -136,9 +147,7 @@ def process_file(f):
             spnps = msg.xpath('.//field[@name="kerberos.SNameString"]')  # is this robust enough?
             spn = "Unknown"
             if isinstance(spnps, list):
-                out = []
-                for spnp in spnps:
-                    out.append(spnp.attrib["show"])
+                out = [spnp.attrib["show"] for spnp in spnps]
                 spn = "/".join(out)
             # locate the hash
             rs = msg.xpath('.//field[@name="kerberos.enc_part_element"]')
@@ -210,9 +219,12 @@ def process_file(f):
                         v = v[0]
                     data = v.attrib["value"]
                     if etype != "23":
-                        sys.stdout.write("$krb5asrep$%s$%s$%s$%s\n" % (etype, salt, data[0:-24], data[-24:]))
+                        sys.stdout.write(
+                            "$krb5asrep$%s$%s$%s$%s\n"
+                            % (etype, salt, data[:-24], data[-24:])
+                        )
                     else:
-                        sys.stdout.write("$krb5asrep$%s$%s$%s\n" % (etype, data[0:32], data[32:]))
+                        sys.stdout.write("$krb5asrep$%s$%s$%s\n" % (etype, data[:32], data[32:]))
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

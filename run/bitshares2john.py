@@ -50,7 +50,7 @@ def process_leveldb(path):
     if idx < 0:
         return False
     start = idx + len("checksum") + 3
-    print("%s:$dynamic_84$%s" % (os.path.basename(path), data[start:start+64*2]))
+    print(f"{os.path.basename(path)}:$dynamic_84${data[start:start + 64 * 2]}")
     return True
 
 

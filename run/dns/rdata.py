@@ -79,10 +79,10 @@ def _truncate_bitmap(what):
     return the bitmap that contains all the bytes less than that index.
     """
 
-    for i in xrange(len(what) - 1, -1, -1):
-        if what[i] != 0:
-            return what[0: i + 1]
-    return what[0:1]
+    return next(
+        (what[: i + 1] for i in xrange(len(what) - 1, -1, -1) if what[i] != 0),
+        what[:1],
+    )
 
 
 class Rdata(object):
@@ -171,10 +171,8 @@ class Rdata(object):
         if covers == dns.rdatatype.NONE:
             ctext = ''
         else:
-            ctext = '(' + dns.rdatatype.to_text(covers) + ')'
-        return '<DNS ' + dns.rdataclass.to_text(self.rdclass) + ' ' + \
-               dns.rdatatype.to_text(self.rdtype) + ctext + ' rdata: ' + \
-               str(self) + '>'
+            ctext = f'({dns.rdatatype.to_text(covers)})'
+        return f'<DNS {dns.rdataclass.to_text(self.rdclass)} {dns.rdatatype.to_text(self.rdtype)}{ctext} rdata: {str(self)}>'
 
     def __str__(self):
         return self.to_text()
@@ -329,10 +327,7 @@ def get_rdata_class(rdclass, rdtype):
                     _rdata_modules[(dns.rdataclass.ANY, rdtype)] = mod
                 except ImportError:
                     mod = None
-    if mod:
-        cls = getattr(mod, rdtype_text)
-    else:
-        cls = GenericRdata
+    cls = getattr(mod, rdtype_text) if mod else GenericRdata
     return cls
 
 

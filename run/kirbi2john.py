@@ -51,15 +51,14 @@ if __name__ == '__main__':
     enctickets = []
 
     for filename in args.files:
-        et = extract_ticket_from_kirbi(filename)
-        if et:
+        if et := extract_ticket_from_kirbi(filename):
             enctickets.append((et,filename))
 
     #out=open("crack_file","wb")
     for et in enctickets:
         filename = et[1].split('/')[-1].split('\\')[-1].replace('.kirbi','')
 
-        out = '$krb5tgs$23$*' + filename + '*$' + et[0][:16].hex() + '$' +et[0][16:].hex() + '\n'
+        out = f'$krb5tgs$23$*{filename}*${et[0][:16].hex()}${et[0][16:].hex()}' + '\n'
 
         args.crack_file.writelines(out)
-    sys.stderr.write('tickets written: ' + str(len(enctickets)) + '\n')
+    sys.stderr.write(f'tickets written: {len(enctickets)}' + '\n')

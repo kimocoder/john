@@ -15,6 +15,7 @@
 
 """DNS Rdata Types."""
 
+
 import re
 
 import dns.exception
@@ -167,7 +168,7 @@ _by_text = {
 # cannot make any mistakes (e.g. omissions, cut-and-paste errors) that
 # would cause the mapping not to be true inverse.
 
-_by_value = dict((y, x) for x, y in _by_text.items())
+_by_value = {y: x for x, y in _by_text.items()}
 
 _metatypes = {
     OPT: True
@@ -229,7 +230,7 @@ def to_text(value):
         raise ValueError("type must be between >= 0 and <= 65535")
     text = _by_value.get(value)
     if text is None:
-        text = 'TYPE' + repr(value)
+        text = f'TYPE{repr(value)}'
     return text
 
 
@@ -244,9 +245,7 @@ def is_metatype(rdtype):
     Returns a ``bool``.
     """
 
-    if rdtype >= TKEY and rdtype <= ANY or rdtype in _metatypes:
-        return True
-    return False
+    return rdtype >= TKEY and rdtype <= ANY or rdtype in _metatypes
 
 
 def is_singleton(rdtype):
@@ -263,6 +262,4 @@ def is_singleton(rdtype):
     Returns a ``bool``.
     """
 
-    if rdtype in _singletons:
-        return True
-    return False
+    return rdtype in _singletons

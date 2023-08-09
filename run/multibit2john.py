@@ -53,7 +53,9 @@ def process_file(filename):
             if pb_wallet.encryption_type == Wallet.UNENCRYPTED:
                 raise ValueError("bitcoinj wallet is not encrypted")
             if pb_wallet.encryption_type != Wallet.ENCRYPTED_SCRYPT_AES:
-                raise NotImplementedError("Unsupported bitcoinj encryption type " + str(pb_wallet.encryption_type))
+                raise NotImplementedError(
+                    f"Unsupported bitcoinj encryption type {str(pb_wallet.encryption_type)}"
+                )
             if not pb_wallet.HasField("encryption_parameters"):
                 raise ValueError("bitcoinj wallet is missing its scrypt encryption parameters")
             for key in pb_wallet.key:
@@ -80,10 +82,7 @@ def process_file(filename):
     try:
         pdata = base64.b64decode(pdata[:64])
 
-        if pdata.startswith(b"Salted__"):
-            version = 1  # MultiBit Classic
-        else:
-            version = 2  # MultiBit HD possibly? We need more tests!
+        version = 1 if pdata.startswith(b"Salted__") else 2
     except:
         version = 2  # MultiBit HD possibly?
 
@@ -93,7 +92,6 @@ def process_file(filename):
         encrypted_data = binascii.hexlify(encrypted_data).decode("ascii")
         salt = binascii.hexlify(salt).decode("ascii")
         sys.stdout.write("%s:$multibit$%d*%s*%s\n" % (bname, version, salt, encrypted_data))
-        return
     else:
         version = 2
         # sanity check but not a very good one
@@ -107,9 +105,7 @@ def process_file(filename):
         block_iv = binascii.hexlify(block_iv).decode("ascii")
         block_noiv = binascii.hexlify(block_noiv).decode("ascii")
         sys.stdout.write("%s:$multibit$%d*%s*%s*%s\n" % (bname, version, iv, block_iv, block_noiv))
-        return
-
-    f.close()
+    return
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

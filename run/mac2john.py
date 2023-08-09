@@ -186,7 +186,7 @@ def readPlist(pathOrFile):
 def wrapDataObject(o, for_binary=False):
     if isinstance(o, Data) and not for_binary:
         v = sys.version_info
-        if not (v[0] >= 3 and v[1] >= 4):
+        if v[0] < 3 or v[1] < 4:
             o = plistlib.Data(o)
     elif isinstance(o, (bytes, plistlib.Data)) and for_binary:
         if hasattr(o, 'data'):
@@ -208,10 +208,7 @@ def readPlistFromString(data):
 def is_stream_binary_plist(stream):
     stream.seek(0)
     header = stream.read(7)
-    if header == b'bplist0':
-        return True
-    else:
-        return False
+    return header == b'bplist0'
 
 PlistTrailer = namedtuple('PlistTrailer', 'offsetSize, objectRefSize, offsetCount, topLevelObjectNumber, offsetTableOffset')
 PlistByteCounts = namedtuple('PlistByteCounts', 'nullBytes, boolBytes, intBytes, realBytes, dateBytes, dataBytes, stringBytes, uidBytes, arrayBytes, setBytes, dictBytes')
@@ -390,11 +387,10 @@ class PlistReader(object):
     def readContents(self, length, description="Object contents"):
         end = self.currentOffset + length
         if end >= len(self.contents) - 32:
-            raise InvalidPlistException("%s extends into trailer" % description)
+            raise InvalidPlistException(f"{description} extends into trailer")
         elif length < 0:
-            raise InvalidPlistException("%s length is less than zero" % length)
-        data = self.contents[self.currentOffset:end]
-        return data
+            raise InvalidPlistException(f"{length} length is less than zero")
+        return self.contents[self.currentOffset:end]
 
     def readInteger(self, byteSize):
         data = self.readContents(byteSize, "Integer")
@@ -477,10 +473,7 @@ class PlistReader(object):
         try:
             result = datetime.timedelta(seconds=x) + apple_reference_date
         except OverflowError:
-            if x > 0:
-                result = datetime.datetime.max
-            else:
-                result = datetime.datetime.min
+            result = datetime.datetime.max if x > 0 else datetime.datetime.min
         self.currentOffset += 8
         return result
 
@@ -501,7 +494,6 @@ class PlistReader(object):
         result = 0
         if byteSize == 0:
             raise InvalidPlistException("Encountered integer with byte size of 0.")
-        # 1, 2, and 4 byte integers are unsigned
         elif byteSize == 1:
             result = unpack('>B', data)[0]
         elif byteSize == 2:
@@ -509,10 +501,7 @@ class PlistReader(object):
         elif byteSize == 4:
             result = unpack('>L', data)[0]
         elif byteSize == 8:
-            if as_number:
-                result = unpack('>q', data)[0]
-            else:
-                result = unpack('>Q', data)[0]
+            result = unpack('>q', data)[0] if as_number else unpack('>Q', data)[0]
         elif byteSize <= 16:
             # Handle odd-sized or integers larger than 8 bytes
             # Don't naively go over 16 bytes, in order to prevent infinite loops.
@@ -532,26 +521,26 @@ class HashableWrapper(object):
     def __init__(self, value):
         self.value = value
     def __repr__(self):
-        return "<HashableWrapper: %s>" % [self.value]
+        return f"<HashableWrapper: {[self.value]}>"
 
 class BoolWrapper(object):
     def __init__(self, value):
         self.value = value
     def __repr__(self):
-        return "<BoolWrapper: %s>" % self.value
+        return f"<BoolWrapper: {self.value}>"
 
 class FloatWrapper(object):
     _instances = {}
-    def __new__(klass, value):
+    def __new__(cls, value):
         # Ensure FloatWrapper(x) for a given float x is always the same object
-        wrapper = klass._instances.get(value)
+        wrapper = cls._instances.get(value)
         if wrapper is None:
-            wrapper = object.__new__(klass)
+            wrapper = object.__new__(cls)
             wrapper.value = value
-            klass._instances[value] = wrapper
+            cls._instances[value] = wrapper
         return wrapper
     def __repr__(self):
-        return "<FloatWrapper: %s>" % self.value
+        return f"<FloatWrapper: {self.value}>"
 
 class StringWrapper(object):
     __instances = {}
@@ -576,7 +565,9 @@ class StringWrapper(object):
                     cls.__instances[encodedValue].encoding = encoding
                 return cls.__instances[encodedValue]
 
-        raise ValueError('Unable to get ascii or utf_16_be encoding for %s' % repr(value))
+        raise ValueError(
+            f'Unable to get ascii or utf_16_be encoding for {repr(value)}'
+        )
 
     def __len__(self):
         '''Return roughly the number of characters in this string (half the byte length)'''
@@ -590,13 +581,10 @@ class StringWrapper(object):
 
     @property
     def encodingMarker(self):
-        if self.encoding == 'ascii':
-            return 0b0101
-        else:
-            return 0b0110
+        return 0b0101 if self.encoding == 'ascii' else 0b0110
 
     def __repr__(self):
-        return '<StringWrapper (%s): %s>' % (self.encoding, self.encodedValue)
+        return f'<StringWrapper ({self.encoding}): {self.encodedValue}>'
 
 
 # Library code ends here, program starts
@@ -623,24 +611,18 @@ def process_file(filename):
     try:
         p1 = readPlist(filename)
     except IOError as e:
-        print("%s : %s" % (filename, str(e)))
+        print(f"{filename} : {str(e)}")
         return False
     except (InvalidPlistException, NotBinaryPlistException):
-        print("%s is not a plist file!" % filename)
+        print(f"{filename} is not a plist file!")
         return False
 
-    s = p1.get('ShadowHashData', [None])[0]
-    if not s:
-        # Process the "preprocessed" output XMLs generated by "plutil" command.
-        #
-        # Example: sudo defaults read /var/db/dslocal/nodes/Default/users/<username>.plist ShadowHashData | tr -dc 0-9a-f | xxd -r -p | plutil -convert xml1 - -o -
-        p2 = p1
-    else:
+    if s := p1.get('ShadowHashData', [None])[0]:
         # Handle regular binary plist files and default XML output of "plutil
         # -convert xml1 username.plist".
         s = StringIO(s)
         if not s:
-            print("%s: could not find ShadowHashData" % filename)
+            print(f"{filename}: could not find ShadowHashData")
             return -2
         try:
             p2 = readPlist(s)
@@ -649,6 +631,11 @@ def process_file(filename):
             sys.stderr.write("%s : %s\n" % (filename, str(e)))
             return -3
 
+    else:
+        # Process the "preprocessed" output XMLs generated by "plutil" command.
+        #
+        # Example: sudo defaults read /var/db/dslocal/nodes/Default/users/<username>.plist ShadowHashData | tr -dc 0-9a-f | xxd -r -p | plutil -convert xml1 - -o -
+        p2 = p1
     d = p2.get('SALTED-SHA512-PBKDF2', None)
     if not d:
         sys.stderr.write("%s does not contain SALTED-SHA512-PBKDF2 hashes\n" % filename)
@@ -665,17 +652,27 @@ def process_file(filename):
         salth = salth.decode("ascii")
         entropyh = entropyh.decode("ascii")
 
-    hints = ""
     hl = p1.get('realname', []) + p1.get('hint', [])
-    hints += ",".join(hl)
+    hints = "" + ",".join(hl)
     uid = p1.get('uid', ["500"])[0]
     gid = p1.get('gid', ["500"])[0]
     shell = p1.get('shell', ["bash"])[0]
     name = p1.get('name', ["user"])[0]
 
-    sys.stdout.write("%s:$pbkdf2-hmac-sha512$%d.%s.%s:%s:%s:%s:%s:%s\n" % \
-            (name, iterations, salth, entropyh[0:128], uid, gid, hints,
-             shell, filename))
+    sys.stdout.write(
+        "%s:$pbkdf2-hmac-sha512$%d.%s.%s:%s:%s:%s:%s:%s\n"
+        % (
+            name,
+            iterations,
+            salth,
+            entropyh[:128],
+            uid,
+            gid,
+            hints,
+            shell,
+            filename,
+        )
+    )
 
     # from passlib.hash import grub_pbkdf2_sha512
     # hash = grub_pbkdf2_sha512.encrypt("password", rounds=iterations, salt=salt)
@@ -685,7 +682,7 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("This program helps in extracting password hashes from OS X / macOS systems (>= Mountain Lion -> 10.8+).\n")
         print("Run this program against .plist file(s) obtained from /var/db/dslocal/nodes/Default/users/<username>.plist location.\n")
-        print("Usage: %s <OS X / macOS .plist files>" % sys.argv[0])
+        print(f"Usage: {sys.argv[0]} <OS X / macOS .plist files>")
         sys.exit(1)
 
     for i in range(1, len(sys.argv)):

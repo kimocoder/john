@@ -23,7 +23,7 @@ def process_file(filename):
             h = binascii.hexlify(row[1])
             if PY3:
                 h = str(h, 'ascii')
-            print("%s:$dynamic_1608$%s" % (os.path.basename(filename), h))
+            print(f"{os.path.basename(filename)}:$dynamic_1608${h}")
 
 
 if __name__ == "__main__":

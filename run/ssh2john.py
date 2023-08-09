@@ -93,7 +93,10 @@ def read_private_key(filename):
         if not join_lines:
             break
 
-        while (start < len(lines)) and (lines[start].strip() != '-----BEGIN ' + tag + ' PRIVATE KEY-----'):
+        while (
+            start < len(lines)
+            and lines[start].strip() != f'-----BEGIN {tag} PRIVATE KEY-----'
+        ):
             start += 1
         if start >= len(lines):
             sys.stderr.write("%s is not a valid private key file\n" % f.name)
@@ -110,7 +113,9 @@ def read_private_key(filename):
             start += 1
         # find end
         end = start
-        while (lines[end].strip() != '-----END ' + tag + ' PRIVATE KEY-----') and (end < len(lines)):
+        while lines[
+            end
+        ].strip() != f'-----END {tag} PRIVATE KEY-----' and end < len(lines):
             end += 1
         # if we trudged to the end of the file, just try to cope.
         try:
@@ -118,7 +123,7 @@ def read_private_key(filename):
             data = base64.b64decode(data)
         except base64.binascii.Error:
             e = sys.exc_info()[1]
-            raise Exception('base64 decoding error: ' + str(e))
+            raise Exception(f'base64 decoding error: {str(e)}')
 
 
         if ktype != 2:
@@ -132,7 +137,7 @@ def read_private_key(filename):
                 raise Exception('Can\'t parse DEK-info in private key file')
 
             if encryption_type not in CIPHER_TABLE:
-                raise Exception('Unknown private key cipher "%s"' % encryption_type)
+                raise Exception(f'Unknown private key cipher "{encryption_type}"')
 
 
         if ktype == 2:  # bcrypt_pbkdf format, see "sshkey_private_to_blob2" in sshkey.c
@@ -144,7 +149,7 @@ def read_private_key(filename):
                 raise Exception('Missing AUTH_MAGIC!')
             offset = offset + len(AUTH_MAGIC) + 1  # sizeof(AUTH_MAGIC)
             length = unpack(">I", data[offset:offset+4])[0]  # ciphername length
-            offset = offset + 4
+            offset += 4
             cipher_name = data[offset:offset+length].decode('ascii')
             if cipher_name == 'none':
                 sys.stderr.write("%s has no password!\n" % f.name)
@@ -155,7 +160,7 @@ def read_private_key(filename):
                 encryption_type = "AES-256-CTR"
             else:
                 raise Exception('Unknown encryption type')
-            offset = offset + length
+            offset += length
             length = unpack(">I", data[offset:offset+4])[0]  # kdfname length
             offset = offset + 4 + length
             length = unpack(">I", data[offset:offset+4])[0]  # kdf length
@@ -181,23 +186,26 @@ def read_private_key(filename):
         keysize = CIPHER_TABLE[encryption_type]['keysize']
         salt = binascii.unhexlify(saltstr)
 
-        filename_idx = '' if len(tags) == 1 else '_' + str(num_processed_keys+1)
+        filename_idx = '' if len(tags) == 1 else f'_{str(num_processed_keys + 1)}'
         data = binascii.hexlify(data).decode("ascii")
-        if keysize == 24 and encryption_type == "AES-192-CBC" and (ktype == 0 or ktype == 1):  # RSA, DSA keys using AES-192
-            hashline = "%s%s:$sshng$%s$%s$%s$%s$%s" % (f.name, filename_idx, 4, len(saltstr) // 2,
-                saltstr, len(data) // 2, data)
-        elif keysize == 32 and encryption_type == "AES-256-CBC" and (ktype == 0 or ktype == 1):  # RSA, DSA keys using AES-256
-            hashline = "%s%s:$sshng$%s$%s$%s$%s$%s" % (f.name, filename_idx, 5, len(saltstr) // 2,
-                saltstr, len(data) // 2, data)
+        if (
+            keysize == 24
+            and encryption_type == "AES-192-CBC"
+            and ktype in [0, 1]
+        ):  # RSA, DSA keys using AES-192
+            hashline = f"{f.name}{filename_idx}:$sshng$4${len(saltstr) // 2}${saltstr}${len(data) // 2}${data}"
+        elif (
+            keysize == 32
+            and encryption_type == "AES-256-CBC"
+            and ktype in [0, 1]
+        ):  # RSA, DSA keys using AES-256
+            hashline = f"{f.name}{filename_idx}:$sshng$5${len(saltstr) // 2}${saltstr}${len(data) // 2}${data}"
         elif keysize == 24:
-            hashline = "%s%s:$sshng$%s$%s$%s$%s$%s" % (f.name, filename_idx, 0,  # 0 -> 3DES
-                len(salt), saltstr, len(data) // 2, data)
-        elif keysize == 16 and (ktype == 0 or ktype == 1):  # RSA, DSA keys using AES-128
-            hashline = "%s%s:$sshng$%s$%s$%s$%s$%s" % (f.name, filename_idx, 1, len(saltstr) // 2,
-                saltstr, len(data) // 2, data)
+            hashline = f"{f.name}{filename_idx}:$sshng$0${len(salt)}${saltstr}${len(data) // 2}${data}"
+        elif keysize == 16 and ktype in [0, 1]:  # RSA, DSA keys using AES-128
+            hashline = f"{f.name}{filename_idx}:$sshng$1${len(saltstr) // 2}${saltstr}${len(data) // 2}${data}"
         elif keysize == 16 and ktype == 3:  # EC keys using AES-128
-            hashline = "%s%s:$sshng$%s$%s$%s$%s$%s" % (f.name, filename_idx, 3, len(saltstr) // 2,
-                saltstr, len(data) // 2, data)
+            hashline = f"{f.name}{filename_idx}:$sshng$3${len(saltstr) // 2}${saltstr}${len(data) // 2}${data}"
         elif keysize == 32 and encryption_type == "AES-256-CBC" and ktype == 2:  # bcrypt pbkdf + aes-256-cbc
             hashline = "%s%s:$sshng$%s$%s$%s$%s$%s$%d$%d" % (f.name, filename_idx, 2, len(saltstr) // 2,
                 saltstr, len(data) // 2, data, rounds, ciphertext_begin_offset)

@@ -73,7 +73,7 @@ class PKCS12KDF:
         r = self._iteration_count
 
         if self._hash_algorithm not in hashlib.algorithms_available:
-            raise("Hash function: "+self._hash_algorithm+" not available")
+            raise f"Hash function: {self._hash_algorithm} not available"
 
         hash_function = hashlib.new(self._hash_algorithm)
 
@@ -162,7 +162,7 @@ class PKCS12KDF:
 
         Ai = bytearray()
 
-        for i in range(0, c):
+        for _ in range(0, c):
             #
             # Step 6a.Set Ai=Hr(D||I). (i.e. the rth hash of D||I, H(H(H(...H(D||I))))
             #
@@ -173,7 +173,7 @@ class PKCS12KDF:
 
             Ai = hash_function.digest()
 
-            for j in range(1, r):
+            for _ in range(1, r):
                 hash_function = hashlib.sha256()
                 hash_function.update(Ai)
                 Ai = hash_function.digest()

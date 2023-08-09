@@ -15,14 +15,20 @@ import binascii
 
 def process_file(filename):
     with open(filename, "r") as f:
-        for line in f.readlines():
+        for line in f:
             line = line.rstrip()
             try:
                 username, realm, htdigesthash = line.split(":")
             except (ValueError, TypeError):
                 continue
-            sys.stdout.write("%s:$dynamic_4$%s$HEX$%s\n" % (username,
-                htdigesthash, binascii.hexlify("%s:%s:" % (username, realm))))
+            sys.stdout.write(
+                "%s:$dynamic_4$%s$HEX$%s\n"
+                % (
+                    username,
+                    htdigesthash,
+                    binascii.hexlify(f"{username}:{realm}:"),
+                )
+            )
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

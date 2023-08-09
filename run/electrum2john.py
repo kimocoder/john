@@ -117,10 +117,9 @@ def process_file(filename, options):
                 iv = binascii.hexlify(iv).decode("ascii")
                 encrypted_data = binascii.hexlify(encrypted_data).decode("ascii")
                 sys.stdout.write("%s:$electrum$1*%s*%s\n" % (bname, iv, encrypted_data))
-                return
             else:
                 sys.stderr.write("%s: Unknown seed_version value '%d' found!\n" % (bname, seed_version))
-                return
+            return
         except:
             sys.stderr.write("%s: Problem in parsing seed value!\n" % (bname, seed_version))
             return
@@ -136,9 +135,7 @@ def process_file(filename, options):
     xprv = None
     version = 2  # hack
     while True:  # "loops" exactly once; only here so we've something to break out of
-        # Electrum 2.7+ standard wallets have a keystore
-        keystore = wallet.get("keystore")
-        if keystore:
+        if keystore := wallet.get("keystore"):
             keystore_type = keystore.get("type", "(not found)")
 
             # Wallets originally created by an Electrum 2.x version
@@ -147,10 +144,8 @@ def process_file(filename, options):
                 if xprv:
                     break
 
-            # Former Electrum 1.x wallet after conversion to Electrum 2.7+ standard-wallet format
             elif keystore_type == "old":
-                seed_data = keystore.get("seed")
-                if seed_data:
+                if seed_data := keystore.get("seed"):
                     # Construct and return a WalletElectrum1 object
                     seed_data = base64.b64decode(seed_data)
                     if len(seed_data) != 64:
@@ -160,7 +155,6 @@ def process_file(filename, options):
                     version = 1  # hack
                     break
 
-            # Imported loose private keys
             elif keystore_type == "imported":
                 for privkey in keystore["keypairs"].values():
                     if privkey:
@@ -178,7 +172,7 @@ def process_file(filename, options):
 
         # Electrum 2.7+ multisig or 2fa wallet
         for i in itertools.count(1):
-            x = wallet.get("x{}/".format(i))
+            x = wallet.get(f"x{i}/")
             if not x:
                 break
             x_type = x.get("type", "(not found)")
@@ -206,12 +200,9 @@ def process_file(filename, options):
             if version == 3:  # another dirty hack, break out of outer loop
                 break
 
-        # Electrum 2.0 - 2.6.4 wallet (of any other wallet type)
-        else:
-            mpks = wallet.get("master_private_keys")
-            if mpks:
-                xprv = mpks.values()[0]
-                break
+        elif mpks := wallet.get("master_private_keys"):
+            xprv = mpks.values()[0]
+            break
 
         raise RuntimeError("No master private keys or seeds found in Electrum2 wallet")
 

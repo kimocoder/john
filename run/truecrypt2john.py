@@ -43,13 +43,13 @@ def process_file(filename, keyfiles, options):
         tags = ["truecrypt_RIPEMD_160", "truecrypt_SHA_512", "truecrypt_WHIRLPOOL"]
 
     for tag in tags:
-        sys.stdout.write("%s:%s$" % (basename(filename), tag))
+        sys.stdout.write(f"{basename(filename)}:{tag}$")
         sys.stdout.write(binascii.hexlify(header).decode('ascii'))
         if keyfiles:
             nkeyfiles = len(keyfiles)
             sys.stdout.write("$%d" % (nkeyfiles))
             for keyfile in keyfiles:
-                sys.stdout.write("$%s" % keyfile)
+                sys.stdout.write(f"${keyfile}")
         sys.stdout.write(":normal::::%s\n" % filename)
 
     # try hidden volume if any
@@ -63,13 +63,13 @@ def process_file(filename, keyfiles, options):
         return
 
     for tag in ["truecrypt_RIPEMD_160", "truecrypt_SHA_512", "truecrypt_WHIRLPOOL"]:
-        sys.stdout.write("%s:%s$" % (basename(filename), tag))
+        sys.stdout.write(f"{basename(filename)}:{tag}$")
         sys.stdout.write(binascii.hexlify(header).decode('ascii'))
         if keyfiles:
             nkeyfiles = len(keyfiles)
             sys.stdout.write("$%d" % (nkeyfiles))
             for keyfile in keyfiles:
-                sys.stdout.write("$%s" % keyfile)
+                sys.stdout.write(f"${keyfile}")
         sys.stdout.write(":hidden::::%s\n" % filename)
 
     f.close()
@@ -87,8 +87,5 @@ if __name__ == "__main__":
     parser.add_option('-b', action="store_true", default=False, dest="boot_mode")
     options, remainder = parser.parse_args()
 
-    keyfiles = []
-    if len(remainder) >= 2:
-        keyfiles = remainder[1:]
-
+    keyfiles = remainder[1:] if len(remainder) >= 2 else []
     process_file(remainder[0], keyfiles, options)

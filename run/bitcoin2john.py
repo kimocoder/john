@@ -132,37 +132,34 @@ def open_wallet(walletfile):
         return db
 
 def parse_wallet(db, item_callback):
-        kds = BCDataStream()
-        vds = BCDataStream()
+    kds = BCDataStream()
+    vds = BCDataStream()
 
-        for (key, value) in db.items():
-                d = { }
+    for (key, value) in db.items():
+        kds.clear()
+        kds.write(key)
+        vds.clear()
+        vds.write(value)
 
-                kds.clear(); kds.write(key)
-                vds.clear(); vds.write(value)
+        type = kds.read_string()
 
-                type = kds.read_string()
+        d = {"__key__": key, "__value__": value, "__type__": type}
+        try:
+                if type == "mkey":
+                        #d['nID'] = kds.read_uint32()
+                        d['encrypted_key'] = vds.read_bytes(vds.read_compact_size())
+                        d['salt'] = vds.read_bytes(vds.read_compact_size())
+                        d['nDerivationMethod'] = vds.read_uint32()
+                        d['nDerivationIterations'] = vds.read_uint32()
+                        #d['otherParams'] = vds.read_string()
 
-                d["__key__"] = key
-                d["__value__"] = value
-                d["__type__"] = type
+                item_callback(type, d)
 
-                try:
-                        if type == "mkey":
-                                #d['nID'] = kds.read_uint32()
-                                d['encrypted_key'] = vds.read_bytes(vds.read_compact_size())
-                                d['salt'] = vds.read_bytes(vds.read_compact_size())
-                                d['nDerivationMethod'] = vds.read_uint32()
-                                d['nDerivationIterations'] = vds.read_uint32()
-                                #d['otherParams'] = vds.read_string()
-
-                        item_callback(type, d)
-
-                except Exception:
-                        sys.stderr.write("ERROR parsing wallet.dat, type %s\n" % type)
-                        sys.stderr.write("key data in hex: %s\n" % hexstr(key))
-                        sys.stderr.write("value data in hex: %s\n" % hexstr(value))
-                        sys.exit(1)
+        except Exception:
+                sys.stderr.write("ERROR parsing wallet.dat, type %s\n" % type)
+                sys.stderr.write("key data in hex: %s\n" % hexstr(key))
+                sys.stderr.write("value data in hex: %s\n" % hexstr(value))
+                sys.exit(1)
 
 # end of bitcointools wallet.dat handling code
 

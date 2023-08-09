@@ -17,7 +17,7 @@ import sys
 
 def process_file(filename):
     with open(filename, "r") as f:
-        for line in f.readlines():
+        for line in f:
             username = None
             data = line.rstrip().split(":")
             if len(data) > 1:  # are usernames present?
@@ -31,9 +31,9 @@ def process_file(filename):
                 continue
 
             # first 5 bytes are the salt
-            salt = rest[0:10]
+            salt = rest[:10]
             h = rest[10:]
-            output = "$dynamic_25$%s$HEX$%s" % (h, salt)
+            output = f"$dynamic_25${h}$HEX${salt}"
 
             if username:
                 sys.stdout.write("%s:%s\n" % (username, output))

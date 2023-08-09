@@ -38,20 +38,20 @@ tag_length = len(tag)
 
 def process_file(filename):
     with open(filename, "r") as f:
-        for line in f.readlines():
+        for line in f:
             line = line.rstrip()
             if tag in line:
                 algo = 3  # SHA-256
             elif "{SHA-512}" in line:
                 algo = 4  # SHA-512
             else:
-                sys.stderr.write("[!] Unknown hash format -> %s\n" % line[0:8])
+                sys.stderr.write("[!] Unknown hash format -> %s\n" % line[:8])
                 continue
             # Parse username
             user = ''
             if ':' in line:
                 parts = line.split(':')
-                user = parts[0] + ':'
+                user = f'{parts[0]}:'
                 line = parts[1]
             # Split up hashing algo, salt, iterations, digest values
             line = line[tag_length:]
